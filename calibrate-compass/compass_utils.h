@@ -4,9 +4,10 @@
 #include <Arduino.h>
 #include <Arduino_LSM9DS1.h>
 #include <float.h>
-#include <eigen.h>
-#include <Eigen/Dense>
-using namespace Eigen;
+//#include <eigen.h>
+//#include <Eigen>
+//#include <Eigen/Dense>
+//using namespace Eigen;
 
 
 void calibrateMagReading(float &x, float &y, float &z,float *magBias, float *magScale, float softIronMatrix[3][3]) {
@@ -122,7 +123,7 @@ void calibrateMag(float *magBias, float *magScale, float softIronMatrix[3][3], i
 }
 
 
-
+/*
 void calibrateMag2(float *magBias, float *magScale, float softIronMatrix[3][3], int sampleCount, int delayTime, float calibrationRadius) {
   float magSum[3] = {0, 0, 0};
   MatrixXf samples(sampleCount, 3);
@@ -179,5 +180,6 @@ void calibrateMag2(float *magBias, float *magScale, float softIronMatrix[3][3], 
   magBias[1] = bias(1);
   magBias[2] = bias(2);
 }
+*/
 
 #endif // COMPASS_UTILS_H
