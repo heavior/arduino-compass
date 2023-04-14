@@ -77,13 +77,15 @@ void setup() {
   }
 
   //TODO: Calibrate magnetometer here
+  IMU.setContinuousMode(true); // continous reading for 
   /*
       // Set the magnetometer calibration values
-      magnetometer.setMagGain(HMC5883L_GAIN_1_3);
+      magnetometer.setMagGain(MAGGAIN_4GAUSS);  Generally, a gain level of 1.3 to 1.9 Gauss is a good starting point for using a magnetometer sensor as a compass.
       magnetometer.setMagDataRate(HMC5883L_DATARATE_15HZ);
-      magnetometer.setMagMeasurementMode(HMC5883L_CONTINOUS);
       magnetometer.setMagBias(0, 0);  // adjust these values as needed
       magnetometer.setMagOffset(0, 0); // adjust these values as needed
+      magnetometer.setMagCalibration(magOffsetX, magOffsetY, magOffsetZ, magScaleX, magScaleY, magScaleZ, magSoftIron);
+
   */
 }
 void readGps(){
@@ -129,8 +131,9 @@ float readCompass(){
   float m_x_comp = mx*cos_pitch + my*sin_roll*sin_pitch + mz*cos_roll*sin_pitch;
   float m_y_comp = my*cos_roll - mz*sin_roll;
   float m_z_comp = -mx*sin_pitch + my*cos_roll*sin_pitch + mz*cos_pitch*sin_roll;
-  float heading = atan2(-m_y_comp, m_x_comp);
 
+
+  float heading = atan2(-m_y_comp, m_x_comp);
   // Convert the heading to degrees
   float heading_degrees = heading * 180.0 / PI;
   if (heading_degrees < 0) {
