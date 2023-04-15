@@ -3,7 +3,10 @@
 
 #include <Arduino.h>
 #include <Arduino_LSM9DS1.h>
+
 #include <float.h>
+
+// Can't compile eigen, so will leave it out of equation for now
 //#include <eigen.h>
 //#include <Eigen>
 //#include <Eigen/Dense>
