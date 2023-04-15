@@ -5,6 +5,7 @@
 #include <Arduino_LSM9DS1.h>
 
 #include <float.h>
+#include <math.h>
 
 // Can't compile eigen, so will leave it out of equation for now
 //#include <eigen.h>
@@ -25,6 +26,19 @@ void calibrateMagReading(float &x, float &y, float &z,float *magBias, float *mag
         y = x * softIronMatrix[1][0] + y * softIronMatrix[1][1] + z * softIronMatrix[1][2];
         z = x * softIronMatrix[2][0] + y * softIronMatrix[2][1] + z * softIronMatrix[2][2];
     }
+}
+
+
+float heading (float x, float y, float declinationAngle){
+  float heading = atan2(y, x);
+  heading += declinationAngle;
+  if (heading < 0) {
+    heading += 2 * PI;
+  }
+  if (heading > 2 * PI) {
+    heading -= 2 * PI;
+  }
+  return heading * 180 / PI;
 }
 
 /**
@@ -100,7 +114,9 @@ void calibrateMag(float *magBias, float *magScale, float softIronMatrix[3][3], i
 
     if(i*100 % sampleCount == 0){
       Serial.print(i*100 / sampleCount);
-      Serial.println("%");
+      Serial.print("%, time left: ");
+      Serial.print((sampleCount-i)*delayTime/1000);
+      Serial.println("s");
     }
     
     delay(delayTime);
