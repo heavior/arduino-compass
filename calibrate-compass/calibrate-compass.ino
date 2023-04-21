@@ -32,7 +32,8 @@ How to use:
 7. use final calibration parameters with calibrateMagReading function in your project
 7.1 to make things better, apply tilt compensation to calibrated parameters
 7.2 to make things even better, figure out declination angle for your location
-
+7.3 magnetometers are noise, think if noise filtering makes sense for you
+7.4 after final assembly, your soft iron matrix might change, so new calibration might improve accuracy
 
 TODO: Make utility library (header) platform-agnostic
 TODO: Firgure out Eigen library and implement soft iron matrix calculation
@@ -66,32 +67,29 @@ float softIronMatrix[3][3] = {
 };
 
 /*
-
-19:31:37.541 -> Field Range: 4.00
 19:31:37.541 -> Offset (Bias): 25.44, 1.61, 8.97
 19:31:37.541 -> Scale: 0.96, 1.01, 1.03
 
-
-
-19:33:51.577 -> Field Range: 4.00
 19:33:51.577 -> Offset (Bias): 26.46, 2.41, 9.68
 19:33:51.577 -> Scale: 1.01, 0.96, 1.03
 
-
-19:36:03.012 -> Field Range: 4.00
 19:36:03.012 -> Offset (Bias): 26.37, 0.88, 9.25
 19:36:03.012 -> Scale: 0.99, 0.98, 1.03
 
-Field Range: 4.00
 20:55:06.135 -> Offset (Bias): 28.06, 8.76, 6.15
 20:55:06.135 -> Scale: 1.00, 0.99, 1.01
 
-
-21:29:11.246 -> Calibration results:
-21:29:11.246 -> Field Range: 4.00
 21:29:11.246 -> Offset (Bias): -5.19, 0.59, 19.69
 21:29:11.246 -> Scale: 0.83, 1.19, 1.05
 
+21:34:15.241 -> Offset (Bias): 14.75, -3.80, 14.34
+21:34:15.241 -> Scale: 0.97, 0.96, 1.05
+
+22:43:44.150 -> Offset (Bias): 29.83, 8.45, 6.16
+22:43:44.150 -> Scale: 0.99, 1.00, 1.02
+
+22:46:45.904 -> Offset (Bias): 29.61, 8.59, 6.15
+22:46:45.904 -> Scale: 0.99, 0.99, 1.02
 */
 
 void setup() {
@@ -142,7 +140,7 @@ void loop() {
     Serial.println(z);
 
     rawHeading = heading(x, y, 0);
-    calibrateMagReading(x,y,z,magBias,magScale, NULL);
+    calibrateMagReading(x,y,z,magBias,magScale, softIronMatrix);
     Serial.print("Calibrated magnetometer data (uT): ");
     Serial.print(x);
     Serial.print(", ");
