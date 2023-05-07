@@ -1,2 +1,4 @@
 
 .DS_Store
+compass-pcb/Compass-backups/**
+compass-pcb/fp-info-cache
