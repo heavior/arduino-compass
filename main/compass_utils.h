@@ -2,7 +2,12 @@
 #define COMPASS_UTILS_H
 
 #include <Arduino.h>
-#include <Arduino_LSM9DS1.h>
+#if BLE_REVISION == 1
+  #include <Arduino_LSM9DS1.h>
+#else
+  #include <Arduino_BMI270_BMM150.h>
+#endif
+
 
 #include <float.h>
 #include <math.h>
