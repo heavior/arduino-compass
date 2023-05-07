@@ -67,14 +67,11 @@ struct CompassState{
 
 };
 void printCompassState(const CompassState& state) {
-  Serial.print("Lat: ");
+  Serial.print("Position: (");
   Serial.print(state.lattitude,6);
-  
-  Serial.print("\tLon: ");
+  Serial.print(",");
   Serial.print(state.longitude,6);
-  
-  Serial.print("\tPosition: ");
-  Serial.print(state.havePosition);
+  Serial.print(")");
   
   Serial.print("\tClosed: ");
   Serial.print(state.closed);
