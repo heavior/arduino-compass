@@ -1,8 +1,17 @@
 /*
 */
 
-#define BLE_REVISION 2
-#define IGNORE_HALL_SENSOR true
+#define BLE_REVISION 1
+#define IGNORE_HALL_SENSOR false
+#define DIABLE_MOTOR true
+#define REQUIRE_PLOOTER true
+
+
+#define DEBUG_HALL false
+
+#define DELAY 100 // usually 100 ?
+#define COMPENSATE_COMPASS false
+
 
 #include <Arduino.h>
 
@@ -66,6 +75,44 @@ struct CompassState{
   int batteryLevel =0; // battery level - %%
 
 };
+void plotHeadersCompassState() {
+  if(REQUIRE_PLOOTER){
+    while(!Serial);
+  }
+
+  //Serial.print("Latitude ");
+  //Serial.print("Longitude ");
+  //Serial.print("GPS ");
+  //Serial.print("Lid ");
+  //Serial.print("ServoSpeed ");
+  Serial.print("Heading,");
+  Serial.print("Dial");
+  //Serial.print("Battery ");
+  //Serial.print("BatteryLevel ");
+  Serial.println();
+}
+void plotCompassState(const CompassState& compassState) {
+  /*Serial.print("Latitude: ");
+  Serial.print(compassState.lattitude);
+  Serial.print(" Longitude: ");
+  Serial.print(compassState.longitude);
+  Serial.print(" GPS: ");
+  Serial.print(compassState.havePosition);
+  Serial.print(" Lid: ");
+  Serial.print(compassState.closed);
+  Serial.print(" ServoSpeed: ");
+  Serial.print(compassState.servoSpeed);*/
+  //Serial.print(" Heading: ");
+  Serial.print(compassState.heading);
+  //Serial.print(" DialPosition: ");
+  //Serial.print(",");
+  //Serial.print(compassState.dial);
+  /*Serial.print(" BatteryVoltage: ");
+  Serial.print(compassState.batteryVoltage);
+  Serial.print(" BatteryLevel: ");
+  Serial.print(compassState.batteryLevel);*/
+  Serial.println();
+}
 void printCompassState(const CompassState& state) {
   Serial.print("Position: (");
   Serial.print(state.lattitude,6);
@@ -195,37 +242,23 @@ void setup() {
   Serial.println("Started");
 
   pinMode(ENCODER_PIN, INPUT);
-
   servoMotor.attach(SERVO_PIN);
-  
+
   gpsPort.begin(9600);
   if (!gpsPort) {  
-    Serial.println("Failed to initialize GPS!");   }
-  else{
+    Serial.println("Failed to initialize GPS!");   
+  }else{
     Serial.println("GPS ready");
   }
   
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
-    // ON BLE sense rev2, IMU.begin doesn't return true
-    /*while (1){  
-      Serial.println("no IMU..");   
-      if(IMU.accelerationAvailable() || IMU.magneticFieldAvailable()){
-        Serial.print("heading: ");   
-        float heading = readCompass();
-        Serial.println(heading);   
-      }
-    };*/
   }else{
     Serial.println("IMU ready");
-    
     //TODO: Calibrate magnetometer here
-    //
     IMU.setContinuousMode(); // continous reading for 
-
   }
 
-  
   Serial.println("Ready");
 }
 
@@ -274,8 +307,11 @@ float readCompass(){
   // this code generated with chatGPT
   float mx, my, mz, ax, ay, az;
   IMU.readMagneticField(mx, my, mz);
-  IMU.readAcceleration(ax, ay, az);
+  if(!COMPENSATE_COMPASS){
+    return heading(mx, my, declinationAngle);
+  }
 
+  IMU.readAcceleration(ax, ay, az);
   calibrateMagReading(mx,my,mz,magBias,magScale, softIronMatrix);
   float roll = atan2(ay, az);
   float pitch = atan2(-ax, sqrt(ay*ay + az*az));
@@ -293,11 +329,18 @@ float readCompass(){
 void loop() {
   // 1. Check if lid is closed or open:
   #if IGNORE_HALL_SENSOR
-  compassState.closed = true;
+  compassState.closed = false;
   #else
   int hallValue = analogRead(HALL_SENSOR_PIN);  // Read the value of the hall sensor
   compassState.closed = hallValue <= HALL_SENSOR_THRESHOLD;
+
+  if(DEBUG_HALL){
+    Serial.print("hall: ");
+    Serial.print(hallValue);
+    Serial.print(" ");
+  }
   #endif
+
 
   if(!checkBattery()){
     //Serial.println("BATTERY LOW !!!");
@@ -332,6 +375,8 @@ void loop() {
   while (compensationAngle < -180){
     compensationAngle += 360;
   }
+  // Serial.print(compensationAngle);
+  // Serial.print(",");
 
   /*  based on the servo tests, 
     90 = 0 speed
@@ -369,12 +414,18 @@ void loop() {
   }
   if(compassState.servoSpeed != servoSpeed){
     compassState.servoSpeed = servoSpeed;
-    servoMotor.write(compassState.servoSpeed);
+
+    if(!DIABLE_MOTOR){
+        servoMotor.write(compassState.servoSpeed);
+    }
 
     //Serial.print("\t servoSpeed: ");
     //Serial.print(currentServoSpeed);  // Print the value to the serial monitor
   }
-  //Serial.println();
-  printCompassState (compassState);
-  delay(100);  
+  if(REQUIRE_PLOOTER){
+    plotCompassState (compassState);
+  }else{
+    printCompassState (compassState);
+  }
+  delay(DELAY);  
 }
