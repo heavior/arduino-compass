@@ -271,7 +271,7 @@
       (stroke (width 0.15) (type solid)) (fill none) (layer "Cmts.User") (tstamp 5743b6ca-f8d9-4fb3-a728-b15ad17b18bd))
     (fp_circle (center 0 0) (end 2.35 0)
       (stroke (width 0.05) (type solid)) (fill none) (layer "F.CrtYd") (tstamp bdbca949-2a36-4dde-a9ea-f2e83b998ce1))
-    (pad "" np_thru_hole circle (at 0 0) (size 1 1) (drill 1) (layers "F&B.Cu" "*.Mask") (tstamp ff2d5889-47d5-43d1-8e10-64bfc876a81b))
+    (pad "" np_thru_hole circle (at 0 0) (size 1.6 1.6) (drill 1.6) (layers "F&B.Cu" "*.Mask") (tstamp ff2d5889-47d5-43d1-8e10-64bfc876a81b))
   )
 
   (footprint "Connector_Wire:SolderWire-0.5sqmm_1x01_D0.9mm_OD2.1mm" (layer "F.Cu")
@@ -517,9 +517,9 @@
     (fp_circle (center 0 0) (end 2.35 0)
       (stroke (width 0.05) (type solid)) (fill none) (layer "F.CrtYd") (tstamp 8abf925d-bbf4-4ce7-8673-c4ebe120f159))
     (pad "" np_thru_hole circle (at 0 0) (size 1 1) (drill 1) (layers "F&B.Cu" "*.Mask") (tstamp 02d32a89-dcd9-4ea7-a977-60d1d7e14eea))
-    (pad "" np_thru_hole circle (at 0 0) (size 1 1) (drill 1) (layers "F&B.Cu" "*.Mask") (tstamp 33975dcb-fcae-4d31-ab1d-306e6c299384))
     (pad "" np_thru_hole circle (at 0 0) (size 1 1) (drill 1) (layers "F&B.Cu" "*.Mask") (tstamp 46e02b54-17b7-42db-beba-6f557692812a))
     (pad "" np_thru_hole circle (at 0 0) (size 1 1) (drill 1) (layers "F&B.Cu" "*.Mask") (tstamp 481fae0a-b306-49b6-b7ef-9fae3a32b4cb))
+    (pad "" np_thru_hole circle (at 0 0) (size 1.6 1.6) (drill 1.6) (layers "F&B.Cu" "*.Mask") (tstamp 33975dcb-fcae-4d31-ab1d-306e6c299384))
   )
 
   (footprint "MountingHole:MountingHole_2.1mm" (layer "F.Cu")
@@ -544,7 +544,8 @@
       (stroke (width 0.15) (type solid)) (fill none) (layer "Cmts.User") (tstamp 39c7f803-7dcf-4fd4-a0a3-2bb51516da2d))
     (fp_circle (center 0 0) (end 2.35 0)
       (stroke (width 0.05) (type solid)) (fill none) (layer "F.CrtYd") (tstamp 084f1376-92b3-4131-879a-e8085e49fee2))
-    (pad "" np_thru_hole circle (at 0 0) (size 1 1) (drill 1) (layers "F&B.Cu" "*.Mask") (tstamp 5441ccf1-2b26-497d-aaac-9036025d5d0d))
+    (pad "" np_thru_hole circle (at 0 0) (size 1.6 1.6) (drill 1.6) (layers "F&B.Cu" "*.Mask") (tstamp 306d1e70-34b3-4a81-84b5-d1c9341ef766))
+    (pad "" np_thru_hole circle (at 0 0) (size 1.6 1.6) (drill 1.6) (layers "F&B.Cu" "*.Mask") (tstamp 5441ccf1-2b26-497d-aaac-9036025d5d0d))
   )
 
   (footprint "Resistor_SMD:R_1206_3216Metric_Pad1.30x1.75mm_HandSolder" (layer "F.Cu")
@@ -1182,7 +1183,7 @@
       (stroke (width 0.15) (type solid)) (fill none) (layer "Cmts.User") (tstamp 0f3b8c79-19c8-4b14-8820-a15ff740a584))
     (fp_circle (center 0 0) (end 2.35 0)
       (stroke (width 0.05) (type solid)) (fill none) (layer "F.CrtYd") (tstamp fa39dd14-162a-4dcc-be1b-322f9cbda5c9))
-    (pad "" np_thru_hole circle (at 0 0) (size 1 1) (drill 1) (layers "F&B.Cu" "*.Mask") (tstamp 4e8cde9d-7bac-4bf6-8120-3f6a3b5f8ad4))
+    (pad "" np_thru_hole circle (at 0 0) (size 1.6 1.6) (drill 1.6) (layers "F&B.Cu" "*.Mask") (tstamp 4e8cde9d-7bac-4bf6-8120-3f6a3b5f8ad4))
   )
 
   (footprint "Connector_Wire:SolderWire-0.5sqmm_1x01_D0.9mm_OD2.1mm" (layer "F.Cu")
