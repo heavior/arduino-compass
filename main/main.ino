@@ -7,6 +7,7 @@
 
 bool disableMotor = false;        // prod value: false
 bool spinMotor = false;           // prod value: false
+// TODO: move to compassState
 int spinSpeed = 0;
 #define REQUIRE_PLOTTER false     // prod value: false
 
@@ -40,7 +41,7 @@ int spinSpeed = 0;
 #define COORDINATES_CURROS {34.183580992498726, -118.29623564524786} // Some point in Miller elementary
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
-double destination[2] = COORDIANTES_HAPPYDAYSCAFE;//{34.180800,-118.300850};        // lattitude, longtitude
+double destination[2] = {34.180800,-118.300850};        // lattitude, longtitude
 
 
 /* END OF DEBUG CONFIGURATION */
@@ -64,6 +65,7 @@ double destination[2] = COORDIANTES_HAPPYDAYSCAFE;//{34.180800,-118.300850};    
 
 #include "compass_utils.h"
 #include "bluetooth_service.h"
+#include "sparrow_music.h"
 // TODO: format my headers as proper libraries
 
 /**
@@ -368,7 +370,9 @@ bool checkBattery(){ // return false if level is dangerous
 
   return compassState.batteryLevel > BATTERY_DANGER_THRESHOLD;
 }
-
+void playTheme(){
+  playSparrowTheme(SERVO_PIN,checkClosedLid);
+}
 
 void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
@@ -512,6 +516,18 @@ int getServoSpeed(int targetDial){
   }
   return speed;
 }
+bool checkClosedLid(){
+  int hallValue = analogRead(HALL_SENSOR_PIN);  // Read the value of the hall sensor
+  compassState.closed = hallValue <= HALL_SENSOR_THRESHOLD;
+
+  if(DEBUG_HALL){
+    Serial.print("hall: ");
+    Serial.print(hallValue);
+    Serial.print(" ");
+  }
+
+  return compassState.closed;
+}
 void loop() {
   calibrateCompass = checkBluetoothCalibration();
   if(calibrateCompass){
@@ -554,14 +570,7 @@ void loop() {
   #if IGNORE_HALL_SENSOR
   compassState.closed = false;
   #else
-  int hallValue = analogRead(HALL_SENSOR_PIN);  // Read the value of the hall sensor
-  compassState.closed = hallValue <= HALL_SENSOR_THRESHOLD;
-
-  if(DEBUG_HALL){
-    Serial.print("hall: ");
-    Serial.print(hallValue);
-    Serial.print(" ");
-  }
+  checkClosedLid();
   #endif
 
 
@@ -585,14 +594,21 @@ void loop() {
   }
   
   updateDirection(destination);
-  spinMotor = false;
-  if(!compassState.havePosition){
-    spinMotor = true;
-    spinSpeed = SERVO_SPIN_SLOW_SPEED;
-  }
+  
   if(compassState.distance < MIN_DISTANCE){
+    if(!spinMotor){ // playing theme once
+      playTheme();
+    }
     spinMotor = true;
     spinSpeed = SERVO_SPIN_FAST_SPEED;
+  } else if(!compassState.havePosition){
+    if(!spinMotor){ // playing theme once
+      playTheme();
+    }
+    spinMotor = true;
+    spinSpeed = SERVO_SPIN_SLOW_SPEED;
+  } else {
+    spinMotor = false;
   }
   
   #if !USE_DESTINATION
