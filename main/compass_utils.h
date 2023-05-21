@@ -38,13 +38,13 @@ void interpolateCalibration(float dialValue, float (&targetCalibraion)[13], cons
   }
 
   if(targetRow>=0){
-    Serial.print("calibration: ");
+  /*  Serial.print("calibration: ");
     Serial.print(targetRow);
     Serial.print("=");
     Serial.print(matrix[targetRow][0], 0);
     Serial.print("\tangle: ");
     Serial.print(matrix[targetRow][0], 0);
-    Serial.print("\t");
+    Serial.print("\t");*/
     for(int i=0;i<13;i++){
       targetCalibraion[i] = matrix[targetRow][i];
     }
@@ -68,7 +68,7 @@ void interpolateCalibration(float dialValue, float (&targetCalibraion)[13], cons
   }
 
   targetCalibraion[0] = mapFloat(dialValue, startAngle, endAngle,  startAngle, endAngle);
-
+/*
   Serial.print("calibration: ");
   Serial.print(i2);
   Serial.print("-");
@@ -76,7 +76,7 @@ void interpolateCalibration(float dialValue, float (&targetCalibraion)[13], cons
   Serial.print("\tangle: ");
   Serial.print(targetCalibraion[0], 0);
   Serial.print("\t");
-
+*/
 }
 
 void calibrateMagReading(float &x, float &y, float &z,const float *calibration) {

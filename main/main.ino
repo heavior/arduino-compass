@@ -1,24 +1,53 @@
-/*
-*/
+/* DEBUG CONFIGURATION */
 
-#define BLE_REVISION 2
-#define CALIBRATE_COMPASS false // when set to true, use 'screen -L /dev/cu.usbmodem1101 9600'  in shell to save raw data from the mag
+#define BLE_REVISION 2            // prod value: 2
+#define CALIBRATE_COMPASS false   // prod value: false
+// when set to true, use 'screen -L /dev/cu.usbmodem1101 9600'  in shell to save raw data from the mag
 // CALIBRATE_COMPASS disables motor after motor reaches FIX_DIAL_POSITION dial position!
 // #define FIX_DIAL_POSITION  0 // For calibration and static tests - the dial will be turned to this position and locked
 
-#define IGNORE_HALL_SENSOR false
-bool disableMotor = false;
-#define REQUIRE_PLOTTER false
+#define IGNORE_HALL_SENSOR false  // prod value: false
+
+bool disableMotor = false;        // prod value: false
+bool spinMotor = false;           // prod value: false
+int spinSpeed = 0;
+#define REQUIRE_PLOTTER false     // prod value: false
+
+#define DEBUG_HALL false          // prod value: false
+
+#define USE_DESTINATION true      // prod value: true
+#define MIN_DISTANCE 5            // distance when to consider destination reached
+#define FIX_DIRECTION 90          // if !USE_DESTINATION -> use this as a direction to point at
+
+#define DELAY 100                 // prod value: 100 
+// if delay 50, accelrometer doesn't have time to read
+
+#define COMPENSATE_COMPASS true   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
 
 
-#define DEBUG_HALL false
+// some useful locations
+#define COORDINATES_MAN {40.786397, -119.206561}          // Burnin man - The Man - North from home
+#define COORDINATES_LONG_BEACH {33.704752, -118.294033}   // Long Beach - South from home 
+#define COORDINATES_OXNARD {34.197981, -119.242624}       // OXNARD shore - West from home
+#define COORDINATES_SNOW_SUMMIT {34.222881, -116.892340}  // Snow summit - East from home
 
-#define DELAY 100 // usually 100 ?
-/*
-if delay 50, accelrometer doesn't have time to read
+#define COORDINATES_NORTH COORDINATES_MAN
+#define COORDINATES_SOUTH LONG_BEACH
+#define COORDINATES_EAST COORDINATES_SNOW_SUMMIT
+#define COORDINATES_WEST COORDINATES_OXNARD
 
-*/
-#define COMPENSATE_COMPASS true // flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
+#define COORDINATES_MILLER_PARK {34.183580992498726, -118.29623564524786} // Some point in Miller elementary
+
+#define COORDINATES_CURROS {34.183580992498726, -118.29623564524786} // Some point in Miller elementary
+#define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
+
+double destination[2] = COORDIANTES_HAPPYDAYSCAFE;//{34.180800,-118.300850};        // lattitude, longtitude
+
+
+/* END OF DEBUG CONFIGURATION */
+
+
+
 
 
 #include <Arduino.h>
@@ -59,12 +88,16 @@ Components in use:
 #define ENCODER_LOW         0     // 50      
 #define ENCODER_HIGH        1023  // 950
 #define ENCODER_PIN         A5    // angular encoder - analogue
+// TODO: change to A3 with new layout
 
 // TODO: we can calculate this version using encoder for feedback
 #define SERVO_PIN           D2    // servo - digital port
 #define SERVO_ZERO_SPEED    90    // 90 is a still position in Servo.h to stop servo motor. Full range supported by servo.h is 0 to 180
 #define SERVO_MAX_SPEED     20    // 30 is prev value, max speed where servo stops accelerating. Note: can go beyond that value, or below to slow it down
 #define SERVO_MIN_SPEED     3     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
+#define SERVO_SPIN_FAST_SPEED   (SERVO_ZERO_SPEED + SERVO_MAX_SPEED)
+#define SERVO_SPIN_SLOW_SPEED   (SERVO_ZERO_SPEED - 2*SERVO_MIN_SPEED)
+
 // TODO: auto-compensate min speed if no rotation happens
 #define DIAL_ANGLE_SENSITIVITY 1  // angle difference where motor locks the engine
 #define DIAL_ZERO           40   // correction to be applied to dial position
@@ -86,7 +119,7 @@ TinyGPSPlus gps;          // GPS object, reads through Serial1
 
 struct CompassState{
   double lattitude = 0.0;
-  double longitude = 0.0; // Current coordinates from GPS
+  double longtitude = 0.0; // Current coordinates from GPS
   bool havePosition = false; // do we have gps reading or not
   bool closed = true;   // closed lid (hall sensor)
   int servoSpeed = SERVO_ZERO_SPEED; // current servo speed
@@ -95,6 +128,10 @@ struct CompassState{
   float batteryVoltage = 0; // current voltage
   int batteryLevel = 0; // battery level - %%
 
+
+  const double* destination = NULL;
+  float direction = 0;
+  float distance = 0;
 };
 void plotHeadersCompassState() {
   if(REQUIRE_PLOTTER){
@@ -136,17 +173,33 @@ void plotCompassState(const CompassState& compassState) {
 }
 void printCompassState(const CompassState& state) {
 
-  /*
   Serial.print("Position: (");
   Serial.print(state.lattitude,6);
   Serial.print(",");
-  Serial.print(state.longitude,6);
+  Serial.print(state.longtitude,6);
   Serial.print(")");
+
+  if(destination){
+    Serial.print(" Destination: (");
+    Serial.print(state.destination[0],6);
+    Serial.print(",");
+    Serial.print(state.destination[1],6);
+    Serial.print(")");
+  }else{
+    Serial.print(" Destination: (");
+    Serial.print(0.0,6);
+    Serial.print(",");
+    Serial.print(0.0,6);
+    Serial.print(")");
+  }
+
+  Serial.print("\tDistance: ");
+  Serial.print(state.distance,1);
+  Serial.print("m\tDirection: ");
+  Serial.print(state.direction,0);
   
   Serial.print("\tClosed: ");
   Serial.print(state.closed);
-
-  */
   
   Serial.print("\tHeading: ");
   Serial.print(state.heading);
@@ -179,12 +232,7 @@ CompassState compassState;
 */
 
 #if BLE_REVISION == 1
-float magBias[3] = {29.881207,6.166102,9.720654};
-float softIronMatrix[3][3] = {
-  {0.991923,0.027539,0.022088},
-  {0.027539,1.001931,-0.012021},
-  {0.022088,-0.012021,1.007619}
-};
+
 #define COMPASS_PIVOT 180   // calibrated heading value when compass is aligned with north
 #define COMPASS_DIRECTION 1 // 1 - clockwise increase, -1 - counterclockwise
 
@@ -207,13 +255,6 @@ const float calibrationMatrix[COMPASS_CALIBRATIONS][13] = {{
 }};
 
 #else
-
-float magBias[3] = {105.220763,-24.730319,-40.534515};
-float softIronMatrix[3][3] = {
-  {0.992524,-0.021443,-0.010875},
-  {-0.021443,0.997302,-0.007623},
-  {-0.010875,-0.007623,1.010909}
-};
 
 #define COMPASS_CALIBRATIONS 9
 /*
@@ -243,17 +284,6 @@ const float calibrationMatrix[COMPASS_CALIBRATIONS][13] = {
 
 float currentCalibration[13];
 
-/*
-float magBias[3] = {28.06, 8.76, 6.15};
-float magScale[3] = {1.00, 1.00, 1.02};
-float softIronMatrix[3][3] = {
-  {1, 0, 0},
-  {0, 1, 0},
-  {0, 0, 1}
-};
-*/
-
-
 float alpha = 0.95; // filtration for potentiometer
 float encoderMin=10000;
 float encoderMax=-1;
@@ -275,9 +305,7 @@ float readDialPosition(){ // функция получения угла с по�
   if(angle < 0 || angle >= 360){
     angle = 0;
   }
-/*  if(angle > 360){
-    angle = 0;
-  }*/
+/* 
   //float angle = ENCODER_SCALE * read;
   
   /*Serial.print("Encoder value  = ");
@@ -289,7 +317,17 @@ float readDialPosition(){ // функция получения угла с по�
   Serial.print("\t\t max:");
   Serial.println(encoderMax);*/
 
-  angle = lpFilter(angle, oldAngle, alpha);   // filter values, but this introduces some inertia to the system
+  angle += DIAL_ZERO;
+
+  while (angle >= 360){
+    angle -= 360;
+  }
+  while (angle < 0){
+    angle += 360;
+  }
+  if(-10 < angle - oldAngle && angle - oldAngle < 10){ // if angles are close. Avoiding lp filter between 360 and 0 which will produce some random outcome
+    angle = lpFilter(angle, oldAngle, alpha);   // filter values, but this introduces some inertia to the system
+  }
   oldAngle = angle;
   return angle;
 }
@@ -345,14 +383,6 @@ void setup() {
   Serial.println("Ready");
 }
 
-// Methods to reduce power consumption when compass is closed
-void softSleep(){
-
-}
-void wakeUp(){
-
-}
-
 void readGps(){
   while(gpsPort.available())//While there are characters to come from the GPS.
   {
@@ -361,20 +391,9 @@ void readGps(){
   }
   if (gps.location.isUpdated()){
     compassState.lattitude = gps.location.lat();
-    compassState.longitude = gps.location.lng();
+    compassState.longtitude = gps.location.lng();
     int precision = gps.hdop.value(); // Horizontal Dim. of Precision (100ths-i32)
     compassState.havePosition = (precision < GPS_HDOP_THRESHOLD);
-
-    /*Serial.print("gps. precision: ");
-    Serial.print(precision);
-    Serial.print("\t lat: ");
-    Serial.print(compassState.lattitude,6);
-    Serial.print("\t lon: ");
-    Serial.print(compassState.longitude,6);
-    Serial.println();*/
-
-  }else{
-    //Serial.print("no gps");
   }
 }
 
@@ -403,7 +422,6 @@ float readCompass(float dialValue){
 
   interpolateCalibration( dialValue,currentCalibration,calibrationMatrix,COMPASS_CALIBRATIONS);
   calibrateMagReading (mx, my, mz, currentCalibration);
-  //calibrateMagReading(mx, my, mz, magBias, softIronMatrix);
 
   IMU.readAcceleration(ax, ay, az); // this stuff works differently on rev1 and rev2 boards. Probably sensor orientation is off
   float roll = atan2(ay, az);
@@ -437,6 +455,29 @@ float readCompass(float dialValue){
   return calibrated_heading;
 }
 
+void updateDirection(const double (&destination)[2]){
+  double distance = gps.distanceBetween(
+    compassState.lattitude,
+    compassState.longtitude,
+    destination[0],
+    destination[1]);
+  double courseTo = gps.courseTo(
+    compassState.lattitude,
+    compassState.longtitude,
+    destination[0],
+    destination[1]);
+
+  Serial.print("Distance: ");
+  Serial.print(distance,1);
+  Serial.print("m\tCourse: ");
+  Serial.println(courseTo,0);
+  Serial.print("\t");
+
+  compassState.destination = destination;
+  compassState.direction = courseTo;
+  compassState.distance = distance;
+}
+
 void loop() {
   // 1. Check if lid is closed or open:
   #if IGNORE_HALL_SENSOR
@@ -466,18 +507,11 @@ void loop() {
 
   // 2. read GPS data
   readGps();
-
+  
   // 3. Read angular position from encoder
   // TODO: compensate for initial position
   // TODO: figure out 360 degrees rotation range
-  compassState.dial = readDialPosition() + DIAL_ZERO;
-  
-  while (compassState.dial >= 360){
-    compassState.dial -= 360;
-  }
-  while (compassState.dial < 0){
-    compassState.dial += 360;
-  }
+  compassState.dial = readDialPosition();
 
 
   // 4. Read magnetometer (with compensation for tilt from accelerometer)
@@ -488,8 +522,23 @@ void loop() {
     compassState.heading = currentHeading;
   }
   
+  
+  #if USE_DESTINATION
+    updateDirection(destination);
+    spinMotor = false;
+    if(!compassState.havePosition){
+      spinMotor = true;
+      spinSpeed = SERVO_SPIN_SLOW_SPEED;
+    }
+    if(compassState.distance < MIN_DISTANCE){
+      spinMotor = true;
+      spinSpeed = SERVO_SPIN_FAST_SPEED;
+    }
+  #else
+    compassState.direction = FIX_DIRECTION;
+  #endif
 
-  int compensationAngle = compassState.heading + compassState.dial;
+  int compensationAngle = compassState.heading - compassState.direction + compassState.dial;
 
   #ifdef FIX_DIAL_POSITION
     compensationAngle = FIX_DIAL_POSITION + compassState.dial;
@@ -539,6 +588,12 @@ void loop() {
   Serial.print("\t speed: ");
   Serial.print(servoSpeed);
   */
+
+  if(spinMotor){
+    Serial.print("SET SPIN SPEED: ");
+    Serial.print(spinSpeed);
+    servoSpeed = spinSpeed;
+  }
 
   if(compassState.closed){
     servoSpeed = SERVO_ZERO_SPEED;
