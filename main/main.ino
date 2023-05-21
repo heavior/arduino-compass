@@ -48,8 +48,6 @@ double destination[2] = COORDIANTES_HAPPYDAYSCAFE;//{34.180800,-118.300850};    
 
 
 
-
-
 #include <Arduino.h>
 
 #if BLE_REVISION == 1
@@ -173,7 +171,10 @@ void plotCompassState(const CompassState& compassState) {
 }
 void printCompassState(const CompassState& state) {
 
-  Serial.print("Position: (");
+  Serial.print("\tClosed: ");
+  Serial.print(state.closed);
+
+  Serial.print("\tPosition: (");
   Serial.print(state.lattitude,6);
   Serial.print(",");
   Serial.print(state.longtitude,6);
@@ -197,9 +198,6 @@ void printCompassState(const CompassState& state) {
   Serial.print(state.distance,1);
   Serial.print("m\tDirection: ");
   Serial.print(state.direction,0);
-  
-  Serial.print("\tClosed: ");
-  Serial.print(state.closed);
   
   Serial.print("\tHeading: ");
   Serial.print(state.heading);
@@ -456,26 +454,17 @@ float readCompass(float dialValue){
 }
 
 void updateDirection(const double (&destination)[2]){
-  double distance = gps.distanceBetween(
-    compassState.lattitude,
-    compassState.longtitude,
-    destination[0],
-    destination[1]);
-  double courseTo = gps.courseTo(
-    compassState.lattitude,
-    compassState.longtitude,
-    destination[0],
-    destination[1]);
-
-  Serial.print("Distance: ");
-  Serial.print(distance,1);
-  Serial.print("m\tCourse: ");
-  Serial.println(courseTo,0);
-  Serial.print("\t");
-
   compassState.destination = destination;
-  compassState.direction = courseTo;
-  compassState.distance = distance;
+  compassState.distance = gps.distanceBetween(
+    compassState.lattitude,
+    compassState.longtitude,
+    destination[0],
+    destination[1]);
+  compassState.direction = gps.courseTo(
+    compassState.lattitude,
+    compassState.longtitude,
+    destination[0],
+    destination[1]);
 }
 
 void loop() {
@@ -499,43 +488,34 @@ void loop() {
   }
   
   // TODO: if state (close/open) changed - initiate wakeup or sleep sequence
-
-  //Serial.print("Hall sensor: ");
-  //Serial.print(hallValue);  // Print the value to the serial monitor
-  //Serial.print("\t motorOn: ");
-  //Serial.print(motorOn);  // Print the value to the serial monitor
+  // TODO: use close-open to initiate bluetooth
 
   // 2. read GPS data
   readGps();
   
   // 3. Read angular position from encoder
-  // TODO: compensate for initial position
-  // TODO: figure out 360 degrees rotation range
   compassState.dial = readDialPosition();
 
-
   // 4. Read magnetometer (with compensation for tilt from accelerometer)
-  // TODO: compensate for upside down or other nonce related to initial installation
-  // TODO: validate against true north
   int currentHeading = readCompass(compassState.dial);
   if(currentHeading >= 0){
     compassState.heading = currentHeading;
   }
   
+  updateDirection(destination);
+  spinMotor = false;
+  if(!compassState.havePosition){
+    spinMotor = true;
+    spinSpeed = SERVO_SPIN_SLOW_SPEED;
+  }
+  if(compassState.distance < MIN_DISTANCE){
+    spinMotor = true;
+    spinSpeed = SERVO_SPIN_FAST_SPEED;
+  }
   
-  #if USE_DESTINATION
-    updateDirection(destination);
-    spinMotor = false;
-    if(!compassState.havePosition){
-      spinMotor = true;
-      spinSpeed = SERVO_SPIN_SLOW_SPEED;
-    }
-    if(compassState.distance < MIN_DISTANCE){
-      spinMotor = true;
-      spinSpeed = SERVO_SPIN_FAST_SPEED;
-    }
-  #else
+  #if !USE_DESTINATION
     compassState.direction = FIX_DIRECTION;
+    spinMotor = false;
   #endif
 
   int compensationAngle = compassState.heading - compassState.direction + compassState.dial;
@@ -550,22 +530,8 @@ void loop() {
   while (compensationAngle < -180){
     compensationAngle += 360;
   }
-  // Serial.print(compensationAngle);
-  // Serial.print(",");
 
-  /*  based on the servo tests, 
-    90 = 0 speed
-    >90 = counterclockwise
-    0-90 clockwise
-
-    120 max speed <- this value is servo-dependent
-    60 min speed 
-  */
-  // TODO: check for minimal speed that halts the engine
   // TODO: consider non-linear speed scale
-  // TODO: move numbers to constants
-  // TODO: move to constants
-
   int servoSpeed = map(compensationAngle, -180, 180, SERVO_ZERO_SPEED - SERVO_MAX_SPEED , SERVO_ZERO_SPEED + SERVO_MAX_SPEED); 
   if(servoSpeed > SERVO_ZERO_SPEED - SERVO_MIN_SPEED && servoSpeed < SERVO_ZERO_SPEED){
     servoSpeed = SERVO_ZERO_SPEED - SERVO_MIN_SPEED;
@@ -577,17 +543,6 @@ void loop() {
   if(-DIAL_ANGLE_SENSITIVITY < compensationAngle && compensationAngle < DIAL_ANGLE_SENSITIVITY){
     servoSpeed = SERVO_ZERO_SPEED;
   }
-
-  /*
-  Serial.print("north: ");
-  Serial.print(angleCompass);
-  Serial.print("\t dial: ");
-  Serial.print(angleDial);
-  Serial.print("\t diff: ");
-  Serial.print(compensationAngle);
-  Serial.print("\t speed: ");
-  Serial.print(servoSpeed);
-  */
 
   if(spinMotor){
     Serial.print("SET SPIN SPEED: ");
@@ -606,10 +561,9 @@ void loop() {
     }else{
       servoMotor.write(SERVO_ZERO_SPEED);
     }
-
-    //Serial.print("\t servoSpeed: ");
-    //Serial.print(currentServoSpeed);  // Print the value to the serial monitor
   }
+
+  
   if(CALIBRATE_COMPASS && disableMotor){
 
   }else{
@@ -622,6 +576,8 @@ void loop() {
 
 
   if(CALIBRATE_COMPASS && compassState.servoSpeed == SERVO_ZERO_SPEED ){
+    // Disable motor once it reaches target compensation value
+    // TODO: maybe add dial position check here
     disableMotor = true;
   }
 
