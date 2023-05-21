@@ -18,7 +18,7 @@ int spinSpeed = 0;
 #define MIN_DISTANCE 5            // distance when to consider destination reached
 #define FIX_DIRECTION 90          // if !USE_DESTINATION -> use this as a direction to point at
 
-#define DELAY 100                 // prod value: 100 
+#define DELAY 50                 // prod value: 100 
 // if delay 50, accelrometer doesn't have time to read
 
 #define COMPENSATE_COMPASS true   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
@@ -45,7 +45,7 @@ double destination[2] = COORDIANTES_HAPPYDAYSCAFE;//{34.180800,-118.300850};    
 
 /* END OF DEBUG CONFIGURATION */
 
-#define BLUETOOTH_NAME "Compass That Doesn't Point North"
+#define BLUETOOTH_NAME "Jack Sparrow Compass"
 
 
 
@@ -86,7 +86,7 @@ int calibrateCompassDial = 0;
 int calibrateReadings = 0;
 #define CALIBRATE_DIAL_MAX  359
 #define CALIBRATE_DIAL_STEP 15
-#define CALIBRATE_READINGS_FOR_DIAL 100 // prod=2000 - how many readings needed to calibrate each angle
+#define CALIBRATE_READINGS_FOR_DIAL 2000 // prod=2000 - how many readings needed to calibrate each angle
 
 #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
 #define HALL_SENSOR_THRESHOLD   500   // value below that is a magnet
@@ -106,7 +106,7 @@ int calibrateReadings = 0;
 #define SERVO_PIN           D2    // servo - digital port
 #define SERVO_ZERO_SPEED    90    // 90 is a still position in Servo.h to stop servo motor. Full range supported by servo.h is 0 to 180
 #define SERVO_MAX_SPEED     20    // 30 is prev value, max speed where servo stops accelerating. Note: can go beyond that value, or below to slow it down
-#define SERVO_MIN_SPEED     3     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
+#define SERVO_MIN_SPEED     4     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
 #define SERVO_SPIN_FAST_SPEED   (SERVO_ZERO_SPEED + SERVO_MAX_SPEED)
 #define SERVO_SPIN_SLOW_SPEED   (SERVO_ZERO_SPEED - 2*SERVO_MIN_SPEED)
 
@@ -525,13 +525,26 @@ void loop() {
     if(calibrateCompassDial > CALIBRATE_DIAL_MAX){
       // Send angle = -1 at the end, until connection breaks
       writeCalibrationData(0,0,0,-1);
+      Serial.print("Close connection ");
     }
 
     if(calibrateReadings >= CALIBRATE_READINGS_FOR_DIAL){
+      // time to turn the motor
       calibrateReadings = 0;
       calibrateCompassDial += CALIBRATE_DIAL_STEP;
       disableMotor = false;
     }
+
+    /*
+    Serial.print("readings: ");
+    Serial.print(calibrateReadings);
+    Serial.print("\tdial:");
+    Serial.print(calibrateCompassDial);
+    Serial.print("\tmotor:");
+    Serial.print(disableMotor);
+    Serial.print("\t");
+    */
+
   }else{
     calibrateReadings = 0;
     calibrateCompassDial = 0;
@@ -594,7 +607,6 @@ void loop() {
   #endif
 
   if(calibrateCompass){
-    Serial.println("Calibrate compass");
     spinMotor = false;
     targetDial = calibrateCompassDial;
   }

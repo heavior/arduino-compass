@@ -48,17 +48,16 @@ void startBluetooth(){
 bool checkBluetooth(){
   hostDevice = BLE.central();
   if(!hostDevice){
-    Serial.print("BT not connected\t");
+    //Serial.print("BT none ");
     return false;
   }
 
   if (!hostDevice.connected()) {
-    Serial.print("BT Disconnected\t");
+    //Serial.print("BT lost ");
     return false;
   }
 
-  Serial.print("BT Connected't");
-  Serial.print(hostDevice.address());
+  //Serial.print("BT on   ");
   return true;
 }
 bool checkBluetoothCalibration(){
