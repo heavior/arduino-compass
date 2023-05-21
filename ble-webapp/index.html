@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <button id="connect">Connect to Arduino</button>
+    <button id="download" style="display: none;">Download CSV</button>
+    <div id="status">Status: Disconnected</div>
+    <div id="counter">Row count: 0</div>
+    <div id="angle">Latest Angle: N/A</div>
+    <div id="output">Latest Values: N/A</div>
+
+    <script>
+      let characteristic;
+      let readings = [];
+      let device;
+
+      document.querySelector('#connect').addEventListener('click', function() {
+        navigator.bluetooth.requestDevice({ 
+          filters: [{ services: ['66c41382-675a-4ec8-af51-82456e148c79'] }] 
+        })
+        .then(selectedDevice => {
+          device = selectedDevice;
+          console.log('Connecting to GATT Server...');
+          document.querySelector('#status').innerText = "Status: Connecting...";
+          return device.gatt.connect();
+        })
+        .then(server => {
+          console.log('Getting Service...');
+          return server.getPrimaryService('66c41382-675a-4ec8-af51-82456e148c79');
+        })
+        .then(service => {
+          console.log('Getting Characteristic...');
+          return service.getCharacteristic('8a257ab3-65e9-4647-98ab-d07fc9bc78b0');
+        })
+        .then(char => {
+          characteristic = char;
+          document.querySelector('#status').innerText = "Status: Connected";
+          return characteristic.startNotifications().then(_ => {
+            characteristic.addEventListener('characteristicvaluechanged', handleCalibrationData);
+            document.querySelector('#download').style.display = 'block';
+          });
+        })
+        .catch(error => {
+          console.log('Error: ' + error);
+          document.querySelector('#status').innerText = "Status: Disconnected";
+        });
+      });
+
+      function handleCalibrationData(event) {
+        let value = event.target.value;
+        let x = value.getFloat32(0, true);
+        let y = value.getFloat32(4, true);
+        let z = value.getFloat32(8, true);
+        let angle = value.getInt32(12, true);
+        
+        readings.push([x, y, z, angle]);
+
+        document.querySelector('#counter').innerText = "Row count: " + readings.length;
+        document.querySelector('#angle').innerText = "Latest Angle: " + angle;
+        document.querySelector('#output').innerText = `Latest Values: X: ${x}, Y: ${y}, Z: ${z}, Angle: ${angle}`;
+
+        if (angle === -1) {
+          downloadCSV();
+          characteristic.stopNotifications().then(_ => {
+            if (device.gatt.connected) {
+              console.log('Disconnecting from GATT Server...');
+              device.gatt.disconnect();
+              document.querySelector('#status').innerText = "Status: Disconnected";
+            }
+          });
+        }
+      }
+
+      document.querySelector('#download').addEventListener('click', downloadCSV);
+
+      function downloadCSV() {
+        let csvContent = "data:text/csv;charset=utf-8," 
+                       + readings.map(e => e.join(",")).join("\n");
+
+        let encodedUri = encodeURI(csvContent);
+        let link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "readings.csv");
+        document.body.appendChild(link); 
+
+        link.click();
+      }
+    </script>
+  </body>
+</html>

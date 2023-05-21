@@ -1,10 +1,7 @@
 /* DEBUG CONFIGURATION */
 
 #define BLE_REVISION 2            // prod value: 2
-#define CALIBRATE_COMPASS false   // prod value: false
-// when set to true, use 'screen -L /dev/cu.usbmodem1101 9600'  in shell to save raw data from the mag
-// CALIBRATE_COMPASS disables motor after motor reaches FIX_DIAL_POSITION dial position!
-// #define FIX_DIAL_POSITION  0 // For calibration and static tests - the dial will be turned to this position and locked
+// #define FIX_DIAL_POSITION  0 
 
 #define IGNORE_HALL_SENSOR false  // prod value: false
 
@@ -14,6 +11,8 @@ int spinSpeed = 0;
 #define REQUIRE_PLOTTER false     // prod value: false
 
 #define DEBUG_HALL false          // prod value: false
+
+#define USE_BLUETOOTH true        // prod value: true
 
 #define USE_DESTINATION true      // prod value: true
 #define MIN_DISTANCE 5            // distance when to consider destination reached
@@ -46,9 +45,15 @@ double destination[2] = COORDIANTES_HAPPYDAYSCAFE;//{34.180800,-118.300850};    
 
 /* END OF DEBUG CONFIGURATION */
 
+#define BLUETOOTH_NAME "Compass That Doesn't Point North"
+
 
 
 #include <Arduino.h>
+#include <ArduinoBLE.h>
+#include <math.h>
+#include <Servo.h>
+#include <TinyGPS++.h>
 
 #if BLE_REVISION == 1
   #include <Arduino_LSM9DS1.h>
@@ -56,11 +61,10 @@ double destination[2] = COORDIANTES_HAPPYDAYSCAFE;//{34.180800,-118.300850};    
   #include <Arduino_BMI270_BMM150.h>
 #endif
 
-#include <math.h>
-#include <Servo.h>
-#include <TinyGPS++.h>
 
 #include "compass_utils.h"
+#include "bluetooth_service.h"
+// TODO: format my headers as proper libraries
 
 /**
 Components in use:
@@ -73,6 +77,16 @@ Components in use:
 * Blutooth to read an update. Turns on after first boot, and shuts down after two minutes without activity
 */
 
+bool calibrateCompass = false;
+// enables when calibration blutooth service is in use
+// when using SerialMonitor - use 'screen -L /dev/cu.usbmodem1101 9600' in shell to save raw data from the mag
+// then use Ellipsoid fit python to perform calibration
+
+int calibrateCompassDial = 0;
+int calibrateReadings = 0;
+#define CALIBRATE_DIAL_MAX  359
+#define CALIBRATE_DIAL_STEP 15
+#define CALIBRATE_READINGS_FOR_DIAL 100 // prod=2000 - how many readings needed to calibrate each angle
 
 #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
 #define HALL_SENSOR_THRESHOLD   500   // value below that is a magnet
@@ -360,6 +374,9 @@ void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
   Serial.println("Started");
 
+  if(USE_BLUETOOTH){
+    startBluetooth();
+  }
   pinMode(ENCODER_PIN, INPUT);
   servoMotor.attach(SERVO_PIN);
 
@@ -408,8 +425,11 @@ float readCompass(float dialValue){
   float mx, my, mz, ax, ay, az;
   IMU.readMagneticField(mx, my, mz);
 
-  if(CALIBRATE_COMPASS && disableMotor){
+  if(calibrateCompass && disableMotor){
     // once motor is fixed - start printing data
+    writeCalibrationData(mx,my,mz,calibrateCompassDial?(360-calibrateCompassDial):0);
+    calibrateReadings ++;
+
     Serial.print(mx);
     Serial.print(",");
     Serial.print(my);
@@ -467,7 +487,56 @@ void updateDirection(const double (&destination)[2]){
     destination[1]);
 }
 
+int getServoSpeed(int targetDial){
+  int speed = SERVO_ZERO_SPEED;
+  int compensationAngle = targetDial + compassState.dial;
+
+  while (compensationAngle > 180){
+    compensationAngle -= 360;
+  }
+  while (compensationAngle < -180){
+    compensationAngle += 360;
+  }
+
+  // TODO: consider non-linear speed scale
+  speed = map(compensationAngle, -180, 180, SERVO_ZERO_SPEED - SERVO_MAX_SPEED , SERVO_ZERO_SPEED + SERVO_MAX_SPEED); 
+  if(speed > SERVO_ZERO_SPEED - SERVO_MIN_SPEED && speed < SERVO_ZERO_SPEED){
+    speed = SERVO_ZERO_SPEED - SERVO_MIN_SPEED;
+  }
+  if(speed < SERVO_ZERO_SPEED + SERVO_MIN_SPEED && speed > SERVO_ZERO_SPEED){
+    speed = SERVO_ZERO_SPEED + SERVO_MIN_SPEED;
+  }
+
+  if(-DIAL_ANGLE_SENSITIVITY < compensationAngle && compensationAngle < DIAL_ANGLE_SENSITIVITY){
+    speed = SERVO_ZERO_SPEED;
+  }
+  return speed;
+}
 void loop() {
+  calibrateCompass = checkBluetoothCalibration();
+  if(calibrateCompass){
+    //Switch to compass calibration logic
+    /* 
+      1) Turn motor to target
+      2) Lock motor
+      3) Collect samples
+      4) Turn again
+    */
+    if(calibrateCompassDial > CALIBRATE_DIAL_MAX){
+      // Send angle = -1 at the end, until connection breaks
+      writeCalibrationData(0,0,0,-1);
+    }
+
+    if(calibrateReadings >= CALIBRATE_READINGS_FOR_DIAL){
+      calibrateReadings = 0;
+      calibrateCompassDial += CALIBRATE_DIAL_STEP;
+      disableMotor = false;
+    }
+  }else{
+    calibrateReadings = 0;
+    calibrateCompassDial = 0;
+  }
+
   // 1. Check if lid is closed or open:
   #if IGNORE_HALL_SENSOR
   compassState.closed = false;
@@ -518,53 +587,33 @@ void loop() {
     spinMotor = false;
   #endif
 
-  int compensationAngle = compassState.heading - compassState.direction + compassState.dial;
+  int targetDial = compassState.heading - compassState.direction;
 
   #ifdef FIX_DIAL_POSITION
-    compensationAngle = FIX_DIAL_POSITION + compassState.dial;
+    targetDial = FIX_DIAL_POSITION;
   #endif
 
-  while (compensationAngle > 180){
-    compensationAngle -= 360;
+  if(calibrateCompass){
+    Serial.println("Calibrate compass");
+    spinMotor = false;
+    targetDial = calibrateCompassDial;
   }
-  while (compensationAngle < -180){
-    compensationAngle += 360;
-  }
-
-  // TODO: consider non-linear speed scale
-  int servoSpeed = map(compensationAngle, -180, 180, SERVO_ZERO_SPEED - SERVO_MAX_SPEED , SERVO_ZERO_SPEED + SERVO_MAX_SPEED); 
-  if(servoSpeed > SERVO_ZERO_SPEED - SERVO_MIN_SPEED && servoSpeed < SERVO_ZERO_SPEED){
-    servoSpeed = SERVO_ZERO_SPEED - SERVO_MIN_SPEED;
-  }
-  if(servoSpeed < SERVO_ZERO_SPEED + SERVO_MIN_SPEED && servoSpeed > SERVO_ZERO_SPEED){
-    servoSpeed = SERVO_ZERO_SPEED + SERVO_MIN_SPEED;
-  }
-
-  if(-DIAL_ANGLE_SENSITIVITY < compensationAngle && compensationAngle < DIAL_ANGLE_SENSITIVITY){
-    servoSpeed = SERVO_ZERO_SPEED;
-  }
+ 
+  int servoSpeed = getServoSpeed(targetDial);
 
   if(spinMotor){
-    Serial.print("SET SPIN SPEED: ");
-    Serial.print(spinSpeed);
     servoSpeed = spinSpeed;
   }
-
-  if(compassState.closed){
+  if((compassState.closed && !calibrateCompass) || disableMotor){
     servoSpeed = SERVO_ZERO_SPEED;
   }
+
   if(compassState.servoSpeed != servoSpeed){
     compassState.servoSpeed = servoSpeed;
-
-    if(!disableMotor){
-      servoMotor.write(compassState.servoSpeed);
-    }else{
-      servoMotor.write(SERVO_ZERO_SPEED);
-    }
+    servoMotor.write(compassState.servoSpeed);
   }
-
   
-  if(CALIBRATE_COMPASS && disableMotor){
+  if(calibrateCompass && disableMotor){
 
   }else{
     if(REQUIRE_PLOTTER){
@@ -574,8 +623,7 @@ void loop() {
     }
   }
 
-
-  if(CALIBRATE_COMPASS && compassState.servoSpeed == SERVO_ZERO_SPEED ){
+  if(calibrateCompass && compassState.servoSpeed == SERVO_ZERO_SPEED ){
     // Disable motor once it reaches target compensation value
     // TODO: maybe add dial position check here
     disableMotor = true;
