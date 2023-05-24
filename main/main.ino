@@ -190,7 +190,6 @@ void plotCompassState(const CompassState& compassState) {
   Serial.println();
 }
 void printCompassState(const CompassState& state) {
-
   Serial.print("\tClosed: ");
   Serial.print(state.closed);
 
@@ -608,9 +607,9 @@ void loop() {
 
   // 1. Check if lid is closed or open:
   #if IGNORE_HALL_SENSOR
-  compassState.closed = false;
+    compassState.closed = false;
   #else
-  checkClosedLid();
+    checkClosedLid();
   #endif
 
 
@@ -619,7 +618,9 @@ void loop() {
   }
   
   // TODO: if state (close/open) changed - initiate wakeup or sleep sequence
+  // TODO: open/close sequences to control compass (next step, etc )
   // TODO: use close-open to initiate bluetooth
+  // TODO: shutdown bluetooth after inactivity
 
   // 2. read GPS data
   readGps();

@@ -28,7 +28,7 @@ struct CalibrationData {
 
 BLEService calibrateCompassService(BLUETOOTH_CALIBRATE_SERVICE_UUID);
 BLECharacteristic calibrationDataCharacteristic(BLUETOOTH_CALIBRATE_CHARACTERISTIC_UUID, BLERead | BLENotify, sizeof(CalibrationData));
-BLEUnsignedIntCharacteristic calibrationControlCharacteristic(BLUETOOTH_CALIBRATE_CONTROL_CHARACTERISTIC_UUID, BLEWrite);
+BLEUnsignedIntCharacteristic calibrationControlCharacteristic(BLUETOOTH_CALIBRATE_CONTROL_CHARACTERISTIC_UUID, BLEWrite | BLENotify);
 BLEDevice hostDevice;
 
 void startBluetooth(){
@@ -50,18 +50,24 @@ void startBluetooth(){
 
 bool checkBluetooth(){
   hostDevice = BLE.central();
-  return hostDevice && !hostDevice.connected();
+  return (!!hostDevice) && (hostDevice.connected());
 }
 
 int checkBluetoothCalibrationAngle(){
   if(!checkBluetooth()){
+
+    Serial.println("no bt");
     return -1;
   }
 
-  if (calibrationControlCharacteristic.valueUpdated()) {
+  if (calibrationControlCharacteristic.written()) {
+    Serial.println("new characteristic value - line 2!!!!");
     return (int)calibrationControlCharacteristic.value();
   }
 
+
+
+  Serial.println("bt: no new value");
   return -1;
 }
 
