@@ -16,7 +16,6 @@ int spinSpeed = 0;
 #define USE_BLUETOOTH true        // prod value: true
 
 #define USE_DESTINATION true      // prod value: true
-#define MIN_DISTANCE 5            // distance when to consider destination reached
 #define FIX_DIRECTION 90          // if !USE_DESTINATION -> use this as a direction to point at
 
 #define DELAY 50                 // prod value: 100 
@@ -41,7 +40,7 @@ int spinSpeed = 0;
 #define COORDINATES_CURROS {34.183580992498726, -118.29623564524786} // Some point in Miller elementary
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
-double destination[2] = {34.180800,-118.300850};        // lattitude, longtitude
+double destination[2] = COORDINATES_NORTH;//{34.180800,-118.300850};        // lattitude, longtitude
 
 
 /* END OF DEBUG CONFIGURATION */
@@ -89,6 +88,8 @@ int calibrateReadings = 0;
 #define CALIBRATE_DIAL_MAX  359
 #define CALIBRATE_DIAL_STEP 15
 #define CALIBRATE_READINGS_FOR_DIAL 2000 // prod=2000 - how many readings needed to calibrate each angle
+// one calibration will take about 40 minutes and will produce 48 000 results. That's too long for an uninterrupted flow
+// TODO: move calibration control to the BT side to allow one calibration at a time
 
 #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
 #define HALL_SENSOR_THRESHOLD   500   // value below that is a magnet
@@ -119,6 +120,8 @@ Servo servoMotor;  // Servo Object
 
 #define gpsPort             Serial1 // 
 #define GPS_HDOP_THRESHOLD        500 //  HDOP*100 to consider pointing to the target. See https://en.wikipedia.org/wiki/Dilution_of_precision_(navigation)
+#define GPS_ACCURACY              2.5 // GPS accuracy of the hardware in meters
+#define MIN_DISTANCE              (GPS_ACCURACY*2)            // distance when to consider destination reached
 TinyGPSPlus gps;          // GPS object, reads through Serial1
 
 
@@ -147,6 +150,7 @@ struct CompassState{
   float direction = 0;
   float distance = 0;
 };
+
 void plotHeadersCompassState() {
   if(REQUIRE_PLOTTER){
     while(!Serial);
@@ -370,8 +374,9 @@ bool checkBattery(){ // return false if level is dangerous
 
   return compassState.batteryLevel > BATTERY_DANGER_THRESHOLD;
 }
+
 void playTheme(){
-  playSparrowTheme(SERVO_PIN,checkClosedLid);
+  playSparrowTheme(SERVO_PIN,checkClosedLid); // play theme, but interrupt if lid is closed
 }
 
 void setup() {
@@ -402,7 +407,7 @@ void setup() {
   Serial.println("Ready");
 }
 
-void readGps(){
+bool readGps(){ // return true if there is a good position available now.
   while(gpsPort.available())//While there are characters to come from the GPS.
   {
     int data = gpsPort.read();
@@ -412,8 +417,47 @@ void readGps(){
     compassState.lattitude = gps.location.lat();
     compassState.longtitude = gps.location.lng();
     int precision = gps.hdop.value(); // Horizontal Dim. of Precision (100ths-i32)
+    /* multiply by 100s:
+      <1	Ideal	Highest possible confidence level to be used for applications demanding the highest possible precision at all times.
+      1–2	Excellent	At this confidence level, positional measurements are considered accurate enough to meet all but the most sensitive applications.
+      2–5	Good	Represents a level that marks the minimum appropriate for making accurate decisions. Positional measurements could be used to make reliable in-route navigation suggestions to the user.
+      5–10	Moderate	Positional measurements could be used for calculations, but the fix quality could still be improved. A more open view of the sky is recommended.
+      10–20	Fair	Represents a low confidence level. Positional measurements should be discarded or used only to indicate a very rough estimate of the current location.
+      >20	Poor	At this level, measurements should be discarded.
+
+
+      Interpretation: 
+      
+    */
+    // 
+    /*
+     float metersPrecision = 1. * GPS_ACCURACY * precision/100; half of the precision circle
+     if (precision > GPS_HDOP_THRESHOLD){ // animation: slow rotating. discard value, no position available }
+     if (distance + metersPrecision <= MIN_DISTANCE) { // animation: pirate theme  - even furthest point of our confidence is close enough to celebrate }
+     if (distance + metersPrecision > MIN_DISTANCE) {  // could be far from the point
+        if(metersPrecision > distance){ 
+            // we are close, but don't know where to go
+            // sweep + spin motion 
+          
+        }
+        else{
+          // can identify the direction with some accuracy
+          // sweep motion
+          float sweepAngleRange = (2* Math.asin (metersPrecision/distance)) * 180/M_PI; // animation - movement within this angle
+          if (sweepAngleRange < MIN_SWEEP_ANGLE_RANGE){
+            // no animation - point straight, the confidence level is good enough
+          }
+        }
+     }
+    */
+    // 
     compassState.havePosition = (precision < GPS_HDOP_THRESHOLD);
+    // TODO: monitor the precision and try to unlock compass earlier. Maybe if the distance is exceeding precision, we can assume it works!
+    
+  }else{
+    return false;
   }
+  return compassState.havePosition;
 }
 
 float readCompass(float dialValue){
@@ -602,9 +646,6 @@ void loop() {
     spinMotor = true;
     spinSpeed = SERVO_SPIN_FAST_SPEED;
   } else if(!compassState.havePosition){
-    if(!spinMotor){ // playing theme once
-      playTheme();
-    }
     spinMotor = true;
     spinSpeed = SERVO_SPIN_SLOW_SPEED;
   } else {

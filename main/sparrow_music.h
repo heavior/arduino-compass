@@ -67,7 +67,9 @@ const int notes[] = {
    NOTE_E5, 0, 0, NOTE_F5, 0, 0,
    NOTE_E5, NOTE_E5, 0, NOTE_G5, 0, NOTE_E5, NOTE_D5, 0, 0,
    NOTE_D5, 0, 0, NOTE_C5, 0, 0,
-   NOTE_B4, NOTE_C5, 0, NOTE_B4, 0, NOTE_A4
+   NOTE_B4, NOTE_C5, 0, NOTE_B4, 0, NOTE_A4,
+
+   0 // delay at the end
 };
 //*****************************************
 const int duration[] = {         //duration of each note (in ms) Quarter Note is set to 250 ms
@@ -121,7 +123,8 @@ const int duration[] = {         //duration of each note (in ms) Quarter Note is
   250, 125, 375, 250, 125, 375,
   125, 125, 125, 125, 125, 125, 125, 125, 375,
   250, 125, 375, 250, 125, 375,
-  125, 125, 125, 125, 125, 500
+  125, 125, 125, 125, 125, 500,
+  500 // delay at the end
 };
 
 void playSparrowTheme(int buzzer, bool (*interrupt)()){
