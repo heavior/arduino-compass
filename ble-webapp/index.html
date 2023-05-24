@@ -2,6 +2,10 @@
 <html>
   <body>
     <button id="connect">Connect to Arduino</button>
+
+    <input type="text" id="numberInput" placeholder="Enter angle">
+    <button id="sendButton" disabled>Start calibration</button>
+
     <button id="downloadRaw" style="display: none;">Download raw CSV</button>
     <button id="downloadCalibration" style="display: none;">Download calibration CSV</button>
     <div id="status">Status: Disconnected</div>
@@ -30,7 +34,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
     
     <script>
-      let characteristic;
+      let characteristicCalibrationReader;
+      let characteristicCalibrationStarter;
       let readings = [];
       let device;
 
@@ -82,6 +87,7 @@
         const d2 = x.map((xi, idx) => xi*xi + y[idx]*y[idx] + z[idx]*z[idx]);
 
         const u = lsqminnorm(D, d2);
+
         const a = u[0] + 1;
         const b = u[1] + 1;
         const c = 1;
@@ -104,38 +110,67 @@
 
         return [scale, bias];
       };
+      const SERVICE_UUID = '66c41382-675a-4ec8-af51-82456e148c79';
 
-      document.querySelector('#connect').addEventListener('click', function() {
-        navigator.bluetooth.requestDevice({ 
-          filters: [{ services: ['66c41382-675a-4ec8-af51-82456e148c79'] }] 
-        })
-        .then(selectedDevice => {
-          device = selectedDevice;
-          console.log('Connecting to GATT Server...');
-          document.querySelector('#status').innerText = "Status: Connecting...";
-          return device.gatt.connect();
-        })
-        .then(server => {
-          console.log('Getting Service...');
-          return server.getPrimaryService('66c41382-675a-4ec8-af51-82456e148c79');
-        })
-        .then(service => {
-          console.log('Getting Characteristic...');
-          return service.getCharacteristic('8a257ab3-65e9-4647-98ab-d07fc9bc78b0');
-        })
-        .then(char => {
-          characteristic = char;
-          return characteristic.startNotifications().then(_ => {
-            characteristic.addEventListener('characteristicvaluechanged', handleData);
-            document.querySelector('#downloadRaw').style.display = 'block';
-            document.getElementById("status").innerText = "Status: Connected";
+      const BLUETOOTH_CALIBRATE_CHARACTERISTIC_UUID = "8a257ab3-65e9-4647-98ab-d07fc9bc78b0";
+      const BLUETOOTH_CALIBRATE_CONTROL_CHARACTERISTIC_UUID = "3c9d3165-a6ef-42c6-9956-01827683c3d6";
+
+      let connect = async () => {
+        try {
+          // Request Bluetooth device
+          const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [SERVICE_UUID] }]
           });
-        })
-        .catch(error => {
-          console.log('Error: ' + error);
+
+          // Connect to the device
+          const server = await device.gatt.connect();
+
+          // Get the service
+          const service = await server.getPrimaryService(SERVICE_UUID);
+
+          // Get the characteristic
+          
+          characteristicCalibrationStarter = await service.getCharacteristic(BLUETOOTH_CALIBRATE_CONTROL_CHARACTERISTIC_UUID);
+          
+
+          characteristicCalibrationReader = await service.getCharacteristic(BLUETOOTH_CALIBRATE_CHARACTERISTIC_UUID);
+          characteristicCalibrationReader.startNotifications().then(_ => {
+            characteristicCalibrationReader.addEventListener('characteristicvaluechanged', handleData);});
+
+          sendButton.disabled = false;
+          console.log('Connected to the device.');
+
+          document.querySelector('#status').innerText = "Status: Connected";
+        } catch (error) {
+          console.error('Error:', error);
+
           document.querySelector('#status').innerText = "Status: Disconnected";
-        });
+        }
+      }
+      document.querySelector('#connect').addEventListener('click', async () =>{
+        if(!device){
+          connect();
+        }
       });
+
+
+      sendButton.addEventListener('click', async () => {
+        const number = parseInt(numberInput.value);
+        if (!isNaN(number)) {
+          try {
+            // Encode the command with the number
+            const command = new Uint8Array([number]);
+
+            // Write the command
+            await characteristicCalibrationStarter.writeValue(command);
+
+            console.log('Command sent successfully.');
+          } catch (error) {
+            console.error('Error:', error);
+          }
+        }
+      });
+      
 
       let calibrateAll = function(){
 
@@ -168,7 +203,7 @@
                 }
             }
 
-            row += `<td>${condition}</td>`;
+            row += `<td>${condition.toFixed(1)}</td>`;
             row += '</tr>';
             table.innerHTML += row;
           });
@@ -192,15 +227,15 @@
         if (angle === -1) {
           // Stop notifications code...
 
-          characteristic.stopNotifications().then(_ => {
+          /*characteristicCalibrationReader.stopNotifications().then(_ => {
             if (device.gatt.connected) {
               console.log('Disconnecting from GATT Server...');
               device.gatt.disconnect();
               document.querySelector('#status').innerText = "Status: Disconnected";
-            }});
-            calibrateAll();
+            }});*/
+          calibrateAll();
 
-            document.querySelector('#downloadCalibration').style.display = 'block';
+          document.querySelector('#downloadCalibration').style.display = 'block';
         }
       }
 
