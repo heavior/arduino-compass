@@ -572,42 +572,38 @@ bool checkClosedLid(){
 
   return compassState.closed;
 }
+void startCalibration(int targetCalibrationAngle){
+  calibrateCompass = true;  // enable calibration mode
+  disableMotor = false; // enabling motor to let it turn to target value
+  calibrateCompassDial = targetCalibrationAngle;
+  calibrateReadings = 0; // reset readings counter
+}
+void endCalibration(){
+  calibrateCompass = false; // disable calibration mode
+  disableMotor = false; // re-enable motor
+  // Send angle = -1 at the end, once
+  calibrateCompassDial = -1; // set calibration dial back to negative value to ensure restart next time
+  writeCalibrationData(0,0,0,-1); // send special value to inform the receiver
+}
+
 void loop() {
-  calibrateCompass = checkBluetoothCalibration();
-  if(calibrateCompass){
-    //Switch to compass calibration logic
+  // reading angle from BT service. Negative angle means no calibration needed
+  int calibrationCommand = checkBluetoothCalibrationAngle();
+  if(calibrationCommand >= 0 && calibrationCommand != calibrateCompassDial){
+    // new calibration value - starting or restarting calibration
     /* 
+      Calibration steps
       1) Turn motor to target
       2) Lock motor
       3) Collect samples
-      4) Turn again
+      4) End calibration with sending angle=-1 reading
     */
-    if(calibrateCompassDial > CALIBRATE_DIAL_MAX){
-      // Send angle = -1 at the end, until connection breaks
-      writeCalibrationData(0,0,0,-1);
-      Serial.print("Close connection ");
-    }
+    startCalibration(calibrationCommand);
+  }
 
-    if(calibrateReadings >= CALIBRATE_READINGS_FOR_DIAL){
-      // time to turn the motor
-      calibrateReadings = 0;
-      calibrateCompassDial += CALIBRATE_DIAL_STEP;
-      disableMotor = false;
-    }
-
-    /*
-    Serial.print("readings: ");
-    Serial.print(calibrateReadings);
-    Serial.print("\tdial:");
-    Serial.print(calibrateCompassDial);
-    Serial.print("\tmotor:");
-    Serial.print(disableMotor);
-    Serial.print("\t");
-    */
-
-  }else{
-    calibrateReadings = 0;
-    calibrateCompassDial = 0;
+  if(calibrateCompass && (calibrateReadings >= CALIBRATE_READINGS_FOR_DIAL)){
+    // enough readings were sent, so we ned calibration
+    endCalibration();
   }
 
   // 1. Check if lid is closed or open:
