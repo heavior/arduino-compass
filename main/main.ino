@@ -268,7 +268,7 @@ const float calibrationMatrix[COMPASS_CALIBRATIONS][13] = {{
 
 #else
 
-#define COMPASS_CALIBRATIONS 9
+#define COMPASS_CALIBRATIONS 17
 /*
   this is a calibration matrix. 13 columns:
   [0] dial angle at which compass was calibrated
@@ -658,6 +658,10 @@ void loop() {
   if(calibrateCompass){
     spinMotor = false;
     targetDial = calibrateCompassDial;
+
+    Serial.print("calibrate target:");
+    Serial.print(calibrateCompassDial);
+
   }
  
   int servoSpeed = getServoSpeed(targetDial);
@@ -673,17 +677,13 @@ void loop() {
     compassState.servoSpeed = servoSpeed;
     servoMotor.write(compassState.servoSpeed);
   }
-  
-  if(calibrateCompass && disableMotor){
 
+  if(REQUIRE_PLOTTER){
+    plotCompassState (compassState);
   }else{
-    if(REQUIRE_PLOTTER){
-      plotCompassState (compassState);
-    }else{
-      printCompassState (compassState);
-    }
+    printCompassState (compassState);
   }
-
+  
   if(calibrateCompass && compassState.servoSpeed == SERVO_ZERO_SPEED ){
     // Disable motor once it reaches target compensation value
     // TODO: maybe add dial position check here

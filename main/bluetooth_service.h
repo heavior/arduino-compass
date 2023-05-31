@@ -55,8 +55,6 @@ bool checkBluetooth(){
 
 int checkBluetoothCalibrationAngle(){
   if(!checkBluetooth()){
-
-    Serial.println("no bt");
     return -1;
   }
 

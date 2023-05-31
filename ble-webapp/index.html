@@ -43,7 +43,7 @@
       let stopAngle = 359;
       let stepAngle = 15; // Every # degrees do calibration
       let currentRowsCounter = 0;
-      let targetRows = 2000;
+      let targetRows = 2000; // reduce to 10-20 to debug
 
       let lsqminnorm = function(A, b) {
         const AtA = math.multiply(math.transpose(A), A);
@@ -123,7 +123,7 @@
       let connect = async () => {
         try {
           // Request Bluetooth device
-          const device = await navigator.bluetooth.requestDevice({
+          device = await navigator.bluetooth.requestDevice({
             filters: [{ services: [SERVICE_UUID] }]
           });
 
@@ -160,9 +160,11 @@
       
       let startCalibration =  async function(angle){
         if (!isNaN(angle)) {
+
+          currentRowsCounter = 0;
           try {
             // Encode the command with the number
-            const command = new Uint8Array([angle]);
+            const command = new Uint16Array([angle]);
 
             // Write the command
             await characteristicCalibrationStarter.writeValue(command);
@@ -234,7 +236,7 @@
         let z = value.getFloat32(8, true);
         let angle = value.getInt32(12, true);
         
-        if (angle > -1) {
+        if (angle > -1) {  
             readings.push([x, y, z, angle]);
             currentRowsCounter++;
 
