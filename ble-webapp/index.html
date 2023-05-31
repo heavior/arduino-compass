@@ -42,6 +42,8 @@
       let startingAngle = 0;
       let stopAngle = 359;
       let stepAngle = 15; // Every # degrees do calibration
+      let currentRowsCounter = 0;
+      let targetRows = 2000;
 
       let lsqminnorm = function(A, b) {
         const AtA = math.multiply(math.transpose(A), A);
@@ -215,6 +217,14 @@
             table.innerHTML += row;
           });
       }
+      function disconnect(){
+          characteristicCalibrationReader.stopNotifications().then(_ => {
+            if (device.gatt.connected) {
+              console.log('Disconnecting from GATT Server...');
+              device.gatt.disconnect();
+              document.querySelector('#status').innerText = "Status: Disconnected";
+            }});
+      }
       function handleData(event) {
 
 
@@ -226,12 +236,13 @@
         
         if (angle > -1) {
             readings.push([x, y, z, angle]);
+            currentRowsCounter++;
 
             document.querySelector('#counter').innerText = "Row count: " + readings.length;
             document.querySelector('#output').innerText = `Latest Values: X: ${x}, Y: ${y}, Z: ${z}, Angle: ${angle}`;
         }
         
-        if (angle === -1) {
+        if (angle === -1 || currentRowsCounter >= targetRows) {
           // Stop notifications code...
 
           startingAngle += stepAngle;
@@ -240,13 +251,7 @@
             return;
           }
 
-
-          /*characteristicCalibrationReader.stopNotifications().then(_ => {
-            if (device.gatt.connected) {
-              console.log('Disconnecting from GATT Server...');
-              device.gatt.disconnect();
-              document.querySelector('#status').innerText = "Status: Disconnected";
-            }});*/
+          disconnect();
           calibrateAll();
 
           document.querySelector('#downloadCalibration').style.display = 'block';
