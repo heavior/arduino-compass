@@ -83,7 +83,7 @@ bool calibrateCompass = false;
 // when using SerialMonitor - use 'screen -L /dev/cu.usbmodem1101 9600' in shell to save raw data from the mag
 // then use Ellipsoid fit python to perform calibration
 
-int calibrateCompassDial = 0;
+int calibrateCompassDial = -1;
 int calibrateReadings = 0;
 #define CALIBRATE_DIAL_MAX  359
 #define CALIBRATE_DIAL_STEP 15
@@ -333,8 +333,6 @@ float readDialPosition(){ // функция получения угла с по�
   Serial.print(encoderMin);
   Serial.print("\t\t max:");
   Serial.println(encoderMax);*/
-
-  angle += DIAL_ZERO;
 
   while (angle >= 360){
     angle -= 360;
@@ -627,11 +625,16 @@ void loop() {
   
   // 3. Read angular position from encoder
   compassState.dial = readDialPosition();
-
+  
   // 4. Read magnetometer (with compensation for tilt from accelerometer)
   int currentHeading = readCompass(compassState.dial);
   if(currentHeading >= 0){
     compassState.heading = currentHeading;
+  }
+
+  // Using this correction only when not calibrating the compass to ensure
+  if(!calibrateCompass){ 
+    compassState.dial += DIAL_ZERO;
   }
   
   updateDirection(destination);

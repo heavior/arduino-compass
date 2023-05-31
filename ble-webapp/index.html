@@ -39,6 +39,9 @@
       let readings = [];
       let device;
 
+      let startingAngle = 0;
+      let stopAngle = 359;
+      let stepAngle = 15; // Every # degrees do calibration
 
       let lsqminnorm = function(A, b) {
         const AtA = math.multiply(math.transpose(A), A);
@@ -152,14 +155,12 @@
           connect();
         }
       });
-
-
-      sendButton.addEventListener('click', async () => {
-        const number = parseInt(numberInput.value);
-        if (!isNaN(number)) {
+      
+      let startCalibration =  async function(angle){
+        if (!isNaN(angle)) {
           try {
             // Encode the command with the number
-            const command = new Uint8Array([number]);
+            const command = new Uint8Array([angle]);
 
             // Write the command
             await characteristicCalibrationStarter.writeValue(command);
@@ -168,7 +169,13 @@
           } catch (error) {
             console.error('Error:', error);
           }
+          numberInput.value = angle;
         }
+      }
+
+      sendButton.addEventListener('click', async () => {
+        startingAngle = parseInt(numberInput.value);
+        await startCalibration(startingAngle);
       });
       
 
@@ -226,6 +233,13 @@
         
         if (angle === -1) {
           // Stop notifications code...
+
+          startingAngle += stepAngle;
+          if(startingAngle <= stopAngle){
+            startCalibration(startingAngle);
+            return;
+          }
+
 
           /*characteristicCalibrationReader.stopNotifications().then(_ => {
             if (device.gatt.connected) {
