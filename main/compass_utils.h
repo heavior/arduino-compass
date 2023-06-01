@@ -21,19 +21,61 @@
 float mapFloat(float x, float in_min, float in_max, float out_min, float out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
-void interpolateCalibration(float dialValue, float (&targetCalibraion)[13], const float (*matrix)[13], int numberOfRows){
+
+
+void closestCalibration(float encoderValue, float (&targetCalibraion)[13], const float (*matrix)[13], int numberOfRows){
   int targetRow = -1;
   int maxRow = 0;
 
   if(numberOfRows == 1){
     targetRow = 0;
   }
-  while(maxRow<numberOfRows && matrix[maxRow][0]<=dialValue){ maxRow++; }
-  if(maxRow == 0){  // dialValue = 0 or less than the first calibration
+  while(maxRow<numberOfRows && matrix[maxRow][0]<=encoderValue){ 
+    maxRow++; 
+  }
+  if(maxRow == 0){  // encoderValue = 0 or less than the first calibration
     // return first calibration
     targetRow = 0;
   }
-  if(maxRow<numberOfRows && matrix[maxRow][0]==dialValue){ // exact match - special case
+  if(maxRow<numberOfRows && matrix[maxRow][0]==encoderValue){ // exact match - special case
+    targetRow = maxRow;
+  }
+
+  int i1 = maxRow - 1;
+  float startAngle = matrix[i1][0];
+  int i2 = maxRow;
+  float endAngle = 0; 
+  if(maxRow == numberOfRows){
+    i2 = 0;
+    endAngle = 360; // first calibration also works for 360 degree value
+  }else{
+    endAngle = matrix[i2][0];
+  }
+
+  if(encoderValue - startAngle > endAngle - encoderValue){
+    targetRow = i2;
+  }else{
+    targetRow = i1;
+  }
+
+  for(int i=0;i<13;i++){
+    targetCalibraion[i] = matrix[targetRow][i];
+  }
+}
+
+void interpolateCalibration(float encoderValue, float (&targetCalibraion)[13], const float (*matrix)[13], int numberOfRows){
+  int targetRow = -1;
+  int maxRow = 0;
+
+  if(numberOfRows == 1){
+    targetRow = 0;
+  }
+  while(maxRow<numberOfRows && matrix[maxRow][0]<=encoderValue){ maxRow++; }
+  if(maxRow == 0){  // encoderValue = 0 or less than the first calibration
+    // return first calibration
+    targetRow = 0;
+  }
+  if(maxRow<numberOfRows && matrix[maxRow][0]==encoderValue){ // exact match - special case
     targetRow = maxRow;
   }
 
@@ -64,10 +106,10 @@ void interpolateCalibration(float dialValue, float (&targetCalibraion)[13], cons
 
   for(int i=0;i<13;i++){
     // here we interpolate between calibrationMatrix[i1] and calibrationMatrix[i2]
-    targetCalibraion[i] = mapFloat(dialValue, startAngle, endAngle, matrix[i1][i], matrix[i2][i]);
+    targetCalibraion[i] = mapFloat(encoderValue, startAngle, endAngle, matrix[i1][i], matrix[i2][i]);
   }
 
-  targetCalibraion[0] = mapFloat(dialValue, startAngle, endAngle,  startAngle, endAngle);
+  //targetCalibraion[0] = mapFloat(encoderValue, startAngle, endAngle,  startAngle, endAngle);
 /*
   Serial.print("calibration: ");
   Serial.print(i2);
