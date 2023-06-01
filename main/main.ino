@@ -9,8 +9,8 @@ struct CompassConfig{
   // use 0 when debugging calibration - makes things easier
 
   // Debug parameters
-  bool interpolateCalibrations = false; // prod value: true, if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
-  bool useDestination = false;    // prod value: true, if false - ignore destination and GPS, point to fixDirection on the dial
+  bool interpolateCalibrations = true; // prod value: true, if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
+  bool useDestination = true;    // prod value: true, if false - ignore destination and GPS, point to fixDirection on the dial
   bool useCompass = true;        // prod value: true, if false - ignore magnetometer, set fixDirection on the dial
 
   int fixDirection = 0;           // prod value: doesn't matter
