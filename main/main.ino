@@ -5,10 +5,6 @@
 
 #define IGNORE_HALL_SENSOR false  // prod value: false
 
-bool disableMotor = false;        // prod value: false
-bool spinMotor = false;           // prod value: false
-// TODO: move to compassState
-int spinSpeed = 0;
 #define REQUIRE_PLOTTER false     // prod value: false
 
 #define DEBUG_HALL false          // prod value: false
@@ -40,12 +36,12 @@ int spinSpeed = 0;
 #define COORDINATES_CURROS {34.183580992498726, -118.29623564524786} // Some point in Miller elementary
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
-double destination[2] = COORDINATES_NORTH;//{34.180800,-118.300850};        // lattitude, longtitude
+const double destination[2] = COORDINATES_NORTH;//{34.180800,-118.300850};        // lattitude, longtitude
 
 
 /* END OF DEBUG CONFIGURATION */
 
-#define BLUETOOTH_NAME "Jack Sparrow Compass"
+#define BLUETOOTH_NAME "Wooden Compass"
 
 
 
@@ -65,6 +61,7 @@ double destination[2] = COORDINATES_NORTH;//{34.180800,-118.300850};        // l
 #include "compass_utils.h"
 #include "bluetooth_service.h"
 #include "sparrow_music.h"
+#include "BatteryLevelService.h"
 // TODO: format my headers as proper libraries
 
 /**
@@ -78,13 +75,6 @@ Components in use:
 * Blutooth to read an update. Turns on after first boot, and shuts down after two minutes without activity
 */
 
-bool calibrateCompass = false;
-// enables when calibration blutooth service is in use
-// when using SerialMonitor - use 'screen -L /dev/cu.usbmodem1101 9600' in shell to save raw data from the mag
-// then use Ellipsoid fit python to perform calibration
-
-int calibrateCompassDial = -1;
-// TODO: add command to stop calibration
 
 #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
 #define HALL_SENSOR_THRESHOLD   500   // value below that is a magnet
@@ -127,6 +117,8 @@ TinyGPSPlus gps;          // GPS object, reads through Serial1
 #define R1 5100.0  // resistance of R1 in the voltage divider circuit
 #define R2 10000.0 //10000.0 // resistance of R2 in the voltage divider circuit
 #define BATTERY_DANGER_THRESHOLD 10 //10% battery - dangerous level
+// TODO: add some reaction to low battery level
+// TODO: find actual low voltage
 
 
 struct CompassState{
@@ -144,6 +136,15 @@ struct CompassState{
   const double* destination = NULL;
   float direction = 0;
   float distance = 0;
+
+  bool disableMotor = false;        // prod value: false
+  bool spinMotor = false;           // prod value: false
+  int spinSpeed = 0;
+
+  bool calibrate = false; // are we in calibration state
+  int calibrateTarget = -1; // dial position for calibration
+  // TODO: add command to stop calibration
+
 };
 
 void plotHeadersCompassState() {
@@ -219,8 +220,16 @@ void printCompassState(const CompassState& state) {
   Serial.print("\tDial: ");
   Serial.print(state.dial);
 
+
+  Serial.print(" \tCalibrate: ");
+  Serial.print(state.calibrate?String(state.calibrateTarget):"false");
+
+
+  Serial.print("\tMotor: ");
+  Serial.print(state.disableMotor?"off": (state.spinMotor?"spin":"on"));
+
   Serial.print("\tSpeed: ");
-  Serial.print(state.servoSpeed);
+  Serial.print(state.spinMotor?state.spinSpeed:state.servoSpeed);
 
   Serial.print("\tBatt: ");
   Serial.print(state.batteryVoltage);
@@ -233,15 +242,6 @@ void printCompassState(const CompassState& state) {
 
 
 CompassState compassState;
-// TODO: do the calibration again after assembly, and iron matrix
-// TODO: move to the library
-/*
-29.881207,6.166102,9.720654
-0.991923,0.027539,0.022088
-0.027539,1.001931,-0.012021
-0.022088,-0.012021,1.007619
-
-*/
 
 #if BLE_REVISION == 1
 
@@ -350,23 +350,16 @@ bool checkBattery(){ // return false if level is dangerous
   int batteryReading = analogRead(BATTERY_PIN);
   compassState.batteryVoltage = (float)batteryReading / 1023.0 * REF_VOLTAGE * (R1 + R2) / R2;
 
-/*
-  Serial.print(batteryReading);
-  Serial.print("\t pin voltage:");
-  Serial.print((float)batteryReading / 1023.0 * REF_VOLTAGE);
-
-  Serial.print("\t battery voltage:");
-  Serial.println((float)compassState.batteryVoltage);
-*/
   // calculate battery percentage
   float remainingCapacity = (compassState.batteryVoltage - MIN_VOLTAGE) / (MAX_VOLTAGE - MIN_VOLTAGE) * 100.0;
   compassState.batteryLevel = constrain(remainingCapacity, 0.0, 100.0);//to int
 
+  BatteryLevelService.setBatteryLevel(compassState.batteryLevel);
   return compassState.batteryLevel > BATTERY_DANGER_THRESHOLD;
 }
 
 void playTheme(){
-  playSparrowTheme(SERVO_PIN,checkClosedLid); // play theme, but interrupt if lid is closed
+  playSparrowTheme(SERVO_PIN, checkClosedLid); // play theme, but interrupt if lid is closed
 }
 
 void setup() {
@@ -395,6 +388,8 @@ void setup() {
   }
 
   Serial.println("Ready");
+
+  BatteryLevelService.begin();
 }
 
 bool readGps(){ // return true if there is a good position available now.
@@ -463,9 +458,9 @@ float readCompass(float dialValue){
   float mx, my, mz, ax, ay, az;
   IMU.readMagneticField(mx, my, mz);
 
-  if(calibrateCompass && disableMotor){
+  if(compassState.calibrate && compassState.disableMotor){
     // once motor is fixed - start printing data
-    writeCalibrationData(mx,my,mz,calibrateCompassDial?(360-calibrateCompassDial):0);
+    writeCalibrationData(mx,my,mz,compassState.calibrateTarget?(360-compassState.calibrateTarget):0);
   }
 
   interpolateCalibration( dialValue,currentCalibration,calibrationMatrix,COMPASS_CALIBRATIONS);
@@ -555,20 +550,20 @@ bool checkClosedLid(){
   return compassState.closed;
 }
 void startCalibration(int targetCalibrationAngle){
-  calibrateCompass = true;  // enable calibration mode
-  disableMotor = false; // enabling motor to let it turn to target value
-  calibrateCompassDial = targetCalibrationAngle;
+  compassState.calibrate = true;  // enable calibration mode
+  compassState.disableMotor = false; // enabling motor to let it turn to target value
+  compassState.calibrateTarget = targetCalibrationAngle;
 }
 void endCalibration(){
-  calibrateCompass = false; // disable calibration mode
-  disableMotor = false; // re-enable motor
-  calibrateCompassDial = -1; // set calibration dial back to negative value to ensure restart next time
+  compassState.calibrate = false; // disable calibration mode
+  compassState.disableMotor = false; // re-enable motor
+  compassState.calibrateTarget = -1; // set calibration dial back to negative value to ensure restart next time
 }
 
 void loop() {
   // reading angle from BT service. Negative angle means no calibration needed
   int calibrationCommand = checkBluetoothCalibrationAngle();
-  if(calibrationCommand >= 0 && calibrationCommand != calibrateCompassDial){
+  if(calibrationCommand >= 0 && calibrationCommand != compassState.calibrateTarget){
     // new calibration value - starting or restarting calibration
     /* 
       Calibration steps
@@ -579,7 +574,7 @@ void loop() {
     */
     startCalibration(calibrationCommand);
   }else{
-    if(calibrateCompass && !checkBluetooth()){
+    if(compassState.calibrate && !checkBluetooth()){
       // Stopping calibration when BT disconnected - suboptimal
       // TODO: maybe have a BT command for stopping calibration
       endCalibration();
@@ -616,7 +611,7 @@ void loop() {
   }
 
   // Using this correction only when not calibrating the compass to ensure
-  if(!calibrateCompass){ 
+  if(!compassState.calibrate){ 
     compassState.dial += DIAL_ZERO;
     while(compassState.dial>=360){
       compassState.dial -= 360;
@@ -629,21 +624,21 @@ void loop() {
   updateDirection(destination);
   
   if(compassState.distance < MIN_DISTANCE){
-    if(!spinMotor){ // playing theme once
+    if(!compassState.spinMotor){ // playing theme once
       playTheme();
     }
-    spinMotor = true;
-    spinSpeed = SERVO_SPIN_FAST_SPEED;
+    compassState.spinMotor = true;
+    compassState.spinSpeed = SERVO_SPIN_FAST_SPEED;
   } else if(!compassState.havePosition){
-    spinMotor = true;
-    spinSpeed = SERVO_SPIN_SLOW_SPEED;
+    compassState.spinMotor = true;
+    compassState.spinSpeed = SERVO_SPIN_SLOW_SPEED;
   } else {
-    spinMotor = false;
+    compassState.spinMotor = false;
   }
   
   #if !USE_DESTINATION
     compassState.direction = FIX_DIRECTION;
-    spinMotor = false;
+    compassState.spinMotor = false;
   #endif
 
   int targetDial = compassState.heading - compassState.direction;
@@ -652,21 +647,17 @@ void loop() {
     targetDial = FIX_DIAL_POSITION;
   #endif
 
-  if(calibrateCompass){
-    spinMotor = false;
-    targetDial = calibrateCompassDial;
-
-    Serial.print("calibrate target:");
-    Serial.print(calibrateCompassDial);
-
+  if(compassState.calibrate){
+    compassState.spinMotor = false;
+    targetDial = compassState.calibrateTarget;
   }
  
   int servoSpeed = getServoSpeed(targetDial);
 
-  if(spinMotor){
-    servoSpeed = spinSpeed;
+  if(compassState.spinMotor){
+    servoSpeed = compassState.spinSpeed;
   }
-  if((compassState.closed && !calibrateCompass) || disableMotor){
+  if((compassState.closed && !compassState.calibrate) || compassState.disableMotor){
     servoSpeed = SERVO_ZERO_SPEED;
   }
 
@@ -681,10 +672,10 @@ void loop() {
     printCompassState (compassState);
   }
   
-  if(calibrateCompass && compassState.servoSpeed == SERVO_ZERO_SPEED ){
+  if(compassState.calibrate && compassState.servoSpeed == SERVO_ZERO_SPEED ){
     // Disable motor once it reaches target compensation value
     // TODO: maybe add dial position check here
-    disableMotor = true;
+    compassState.disableMotor = true;
   }
 
   delay(DELAY);  
