@@ -3,20 +3,25 @@
 #define BLE_REVISION 2            // prod value: 2
 // #define FIX_DIAL_POSITION  0 
 
-#define IGNORE_HALL_SENSOR false  // prod value: false
+struct CompassConfig{
+  //  Actual configuration
+  int encoderZeroDialNorth = 45;     // prod: 45   // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
+  // use 0 when debugging calibration - makes things easier
 
-#define DEBUG_HALL false          // prod value: false
+  // Debug parameters
+  bool interpolateCalibrations = false; // prod value: true, if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
+  bool useDestination = false;    // prod value: true, if false - ignore destination and GPS, point to fixDirection on the dial
+  bool useCompass = true;        // prod value: true, if false - ignore magnetometer, set fixDirection on the dial
 
-#define USE_BLUETOOTH true        // prod value: true
+  int fixDirection = 0;           // prod value: doesn't matter
 
-#define USE_DESTINATION true      // prod value: true
-#define FIX_DIRECTION 90          // if !USE_DESTINATION -> use this as a direction to point at
-
-#define DELAY 50                 // prod value: 100 
-// if delay 50, accelrometer doesn't have time to read
-
-#define COMPENSATE_COMPASS true   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
-
+  unsigned int delay = 50; // prod value=100, if delay 50, accelrometer doesn't always have time to read
+  bool ignoreHallSensor = false;  // prod value: false
+  bool debugHall = false;         // prod value: false
+  bool enableBluetooth = true;    // prod value: true
+  bool compensateCompassForTilt =  true;   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
+};
+CompassConfig compassConfig;
 
 // some useful locations
 #define COORDINATES_MAN {40.786397, -119.206561}          // Burnin man - The Man - North from home
@@ -99,7 +104,6 @@ Components in use:
 
 // TODO: auto-compensate min speed if no rotation happens
 #define DIAL_ANGLE_SENSITIVITY 1  // angle difference where motor locks the engine
-#define DIAL_ZERO           40   // correction to be applied to dial position
 Servo servoMotor;  // Servo Object
 
 #define gpsPort             Serial1 // 
@@ -189,8 +193,6 @@ const float calibrationMatrix[COMPASS_CALIBRATIONS][13] = {
 
 #endif
 
-float currentCalibration[13];
-
 float alpha = 0.95; // filtration for potentiometer
 float encoderMin=10000;
 float encoderMax=-1;
@@ -207,7 +209,7 @@ float readDialPosition(){ // функция получения угла с по�
     encoderMax = read;
   }
 
-  float angle = map(read,ENCODER_LOW,ENCODER_HIGH,0,359);
+  float angle = map(read, ENCODER_LOW, ENCODER_HIGH, 0, 359);
 
   if(angle < 0 || angle >= 360){
     angle = 0;
@@ -246,7 +248,9 @@ void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
   Serial.println("Started");
 
-  if(USE_BLUETOOTH){
+  compassState.destination = destination;
+
+  if(compassConfig.enableBluetooth){
     startBluetooth();
     BatteryLevelService.begin();
     setupCompassStateBLEService();
@@ -326,7 +330,7 @@ bool readGps(){ // return true if there is a good position available now.
   return compassState.havePosition;
 }
 
-float readCompass(float dialValue){
+float readCompass(float encoderValue){
   // compass value compensated with accelerometer. will freak out when shaking.
   // TODO: maybe use gyro to introduce noise when shaking
 
@@ -344,8 +348,12 @@ float readCompass(float dialValue){
     writeCalibrationData(mx,my,mz,compassState.calibrateTarget?(360-compassState.calibrateTarget):0);
   }
 
-  interpolateCalibration( dialValue,currentCalibration,calibrationMatrix,COMPASS_CALIBRATIONS);
-  calibrateMagReading (mx, my, mz, currentCalibration);
+  if(compassConfig.interpolateCalibrations){
+    interpolateCalibration(encoderValue, compassState.currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
+  }else{
+    closestCalibration(encoderValue, compassState.currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
+  }
+  calibrateMagReading (mx, my, mz, compassState.currentCalibration);
 
   IMU.readAcceleration(ax, ay, az); // this stuff works differently on rev1 and rev2 boards. Probably sensor orientation is off
   float roll = atan2(ay, az);
@@ -364,7 +372,7 @@ float readCompass(float dialValue){
   float m_z_comp = -mx*sin_pitch + my*cos_roll*sin_pitch + mz*cos_pitch*sin_roll;
 
 
-  if(!COMPENSATE_COMPASS){
+  if(!compassConfig.compensateCompassForTilt){
     return heading(mx, my, declinationAngle);
   }
 
@@ -379,8 +387,7 @@ float readCompass(float dialValue){
   return calibrated_heading;
 }
 
-void updateDirection(const double (&destination)[2]){
-  compassState.destination = destination;
+void updateDirection(){
   compassState.distance = gps.distanceBetween(
     compassState.lattitude,
     compassState.longtitude,
@@ -422,7 +429,7 @@ bool checkClosedLid(){
   int hallValue = analogRead(HALL_SENSOR_PIN);  // Read the value of the hall sensor
   compassState.closed = hallValue <= HALL_SENSOR_THRESHOLD;
 
-  if(DEBUG_HALL){
+  if(compassConfig.debugHall){
     Serial.print("hall: ");
     Serial.print(hallValue);
     Serial.print(" ");
@@ -463,11 +470,11 @@ void loop() {
   }
 
   // 1. Check if lid is closed or open:
-  #if IGNORE_HALL_SENSOR
+  if(compassConfig.ignoreHallSensor){
     compassState.closed = false;
-  #else
+  }else{
     checkClosedLid();
-  #endif
+  }
 
 
   if(!checkBattery()){
@@ -493,7 +500,7 @@ void loop() {
 
   // Using this correction only when not calibrating the compass to ensure
   if(!compassState.calibrate){ 
-    compassState.dial += DIAL_ZERO;
+    compassState.dial += compassConfig.encoderZeroDialNorth;
     while(compassState.dial>=360){
       compassState.dial -= 360;
     }
@@ -502,7 +509,7 @@ void loop() {
     }
   }
   
-  updateDirection(destination);
+  updateDirection();
   
   if(compassState.distance < MIN_DISTANCE){
     if(!compassState.spinMotor){ // playing theme once
@@ -517,16 +524,13 @@ void loop() {
     compassState.spinMotor = false;
   }
   
-  #if !USE_DESTINATION
-    compassState.direction = FIX_DIRECTION;
+  int targetDial = (compassConfig.useCompass?compassState.heading:compassConfig.fixDirection)
+                  - (compassConfig.useDestination?compassState.direction:0);
+                  // using config we can ignore magnetometer (compass orientation) and or direction to destination
+
+  if(!compassConfig.useDestination){
     compassState.spinMotor = false;
-  #endif
-
-  int targetDial = compassState.heading - compassState.direction;
-
-  #ifdef FIX_DIAL_POSITION
-    targetDial = FIX_DIAL_POSITION;
-  #endif
+  }
 
   if(compassState.calibrate){
     compassState.spinMotor = false;
@@ -556,5 +560,5 @@ void loop() {
   printCompassState (compassState);
   updateCompassStateBLE (compassState);
 
-  delay(DELAY);  
+  delay(compassConfig.delay);  
 }
