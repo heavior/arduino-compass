@@ -59,13 +59,8 @@ int checkBluetoothCalibrationAngle(){
   }
 
   if (calibrationControlCharacteristic.written()) {
-    Serial.println("new characteristic value - line 2!!!!");
     return (int)calibrationControlCharacteristic.value();
   }
-
-
-
-  Serial.println("bt: no new value");
   return -1;
 }
 

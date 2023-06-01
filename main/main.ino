@@ -5,8 +5,6 @@
 
 #define IGNORE_HALL_SENSOR false  // prod value: false
 
-#define REQUIRE_PLOTTER false     // prod value: false
-
 #define DEBUG_HALL false          // prod value: false
 
 #define USE_BLUETOOTH true        // prod value: true
@@ -62,6 +60,7 @@ const double destination[2] = COORDINATES_NORTH;//{34.180800,-118.300850};      
 #include "bluetooth_service.h"
 #include "sparrow_music.h"
 #include "BatteryLevelService.h"
+#include "CompassState.h"
 // TODO: format my headers as proper libraries
 
 /**
@@ -120,125 +119,6 @@ TinyGPSPlus gps;          // GPS object, reads through Serial1
 // TODO: add some reaction to low battery level
 // TODO: find actual low voltage
 
-
-struct CompassState{
-  double lattitude = 0.0;
-  double longtitude = 0.0; // Current coordinates from GPS
-  bool havePosition = false; // do we have gps reading or not
-  bool closed = true;   // closed lid (hall sensor)
-  int servoSpeed = SERVO_ZERO_SPEED; // current servo speed
-  int heading = 0; // direction from north (angles)
-  int dial = 0; // current dial position (angles)
-  float batteryVoltage = 0; // current voltage
-  int batteryLevel = 0; // battery level - %%
-
-
-  const double* destination = NULL;
-  float direction = 0;
-  float distance = 0;
-
-  bool disableMotor = false;        // prod value: false
-  bool spinMotor = false;           // prod value: false
-  int spinSpeed = 0;
-
-  bool calibrate = false; // are we in calibration state
-  int calibrateTarget = -1; // dial position for calibration
-  // TODO: add command to stop calibration
-
-};
-
-void plotHeadersCompassState() {
-  if(REQUIRE_PLOTTER){
-    while(!Serial);
-  }
-
-  //Serial.print("Latitude ");
-  //Serial.print("Longitude ");
-  //Serial.print("GPS ");
-  //Serial.print("Lid ");
-  //Serial.print("ServoSpeed ");
-  Serial.print("Heading,");
-  Serial.print("Dial");
-  //Serial.print("Battery ");
-  //Serial.print("BatteryLevel ");
-  Serial.println();
-}
-void plotCompassState(const CompassState& compassState) {
-  /*Serial.print("Latitude: ");
-  Serial.print(compassState.lattitude);
-  Serial.print(" Longitude: ");
-  Serial.print(compassState.longitude);
-  Serial.print(" GPS: ");
-  Serial.print(compassState.havePosition);
-  Serial.print(" Lid: ");
-  Serial.print(compassState.closed);
-  Serial.print(" ServoSpeed: ");
-  Serial.print(compassState.servoSpeed);*/
-  //Serial.print(" Heading: ");
-  Serial.print(compassState.heading);
-  //Serial.print(" DialPosition: ");
-  //Serial.print(",");
-  //Serial.print(compassState.dial);
-  /*Serial.print(" BatteryVoltage: ");
-  Serial.print(compassState.batteryVoltage);
-  Serial.print(" BatteryLevel: ");
-  Serial.print(compassState.batteryLevel);*/
-  Serial.println();
-}
-void printCompassState(const CompassState& state) {
-  Serial.print("\tClosed: ");
-  Serial.print(state.closed);
-
-  Serial.print("\tPosition: (");
-  Serial.print(state.lattitude,6);
-  Serial.print(",");
-  Serial.print(state.longtitude,6);
-  Serial.print(")");
-
-  if(destination){
-    Serial.print(" Destination: (");
-    Serial.print(state.destination[0],6);
-    Serial.print(",");
-    Serial.print(state.destination[1],6);
-    Serial.print(")");
-  }else{
-    Serial.print(" Destination: (");
-    Serial.print(0.0,6);
-    Serial.print(",");
-    Serial.print(0.0,6);
-    Serial.print(")");
-  }
-
-  Serial.print("\tDistance: ");
-  Serial.print(state.distance,1);
-  Serial.print("m\tDirection: ");
-  Serial.print(state.direction,0);
-  
-  Serial.print("\tHeading: ");
-  Serial.print(state.heading);
-  
-  Serial.print("\tDial: ");
-  Serial.print(state.dial);
-
-
-  Serial.print(" \tCalibrate: ");
-  Serial.print(state.calibrate?String(state.calibrateTarget):"false");
-
-
-  Serial.print("\tMotor: ");
-  Serial.print(state.disableMotor?"off": (state.spinMotor?"spin":"on"));
-
-  Serial.print("\tSpeed: ");
-  Serial.print(state.spinMotor?state.spinSpeed:state.servoSpeed);
-
-  Serial.print("\tBatt: ");
-  Serial.print(state.batteryVoltage);
-  Serial.print("v, ");
-  Serial.print(state.batteryLevel);
-  Serial.print("%");
-
-  Serial.println();
-}
 
 
 CompassState compassState;
@@ -368,6 +248,8 @@ void setup() {
 
   if(USE_BLUETOOTH){
     startBluetooth();
+    BatteryLevelService.begin();
+    setupCompassStateBLEService();
   }
   pinMode(ENCODER_PIN, INPUT);
   servoMotor.attach(SERVO_PIN);
@@ -389,7 +271,6 @@ void setup() {
 
   Serial.println("Ready");
 
-  BatteryLevelService.begin();
 }
 
 bool readGps(){ // return true if there is a good position available now.
@@ -665,18 +546,15 @@ void loop() {
     compassState.servoSpeed = servoSpeed;
     servoMotor.write(compassState.servoSpeed);
   }
-
-  if(REQUIRE_PLOTTER){
-    plotCompassState (compassState);
-  }else{
-    printCompassState (compassState);
-  }
   
   if(compassState.calibrate && compassState.servoSpeed == SERVO_ZERO_SPEED ){
     // Disable motor once it reaches target compensation value
     // TODO: maybe add dial position check here
     compassState.disableMotor = true;
   }
+
+  printCompassState (compassState);
+  updateCompassStateBLE (compassState);
 
   delay(DELAY);  
 }

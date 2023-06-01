@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>BLE Compass</title>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+        }
+        .data-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 5px 0;
+          border-bottom: 1px solid #ddd;
+        }
+        .data-row:last-child {
+          border-bottom: none;
+        }
+        .data-key {
+          font-weight: bold;
+        }
+      </style>
+
+    <script>
+      let compassServiceUUID = "19b10000-e8f2-537e-4f6c-d104768a1214";
+      let compassStateUUID = "19b10001-e8f2-537e-4f6c-d104768a1214";
+
+      let device, server, service, characteristic;
+
+      async function connect() {
+        try {
+          console.log('Requesting Bluetooth Device...');
+          device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: [compassServiceUUID] }]
+          });
+
+          console.log('Connecting to GATT Server...');
+          server = await device.gatt.connect();
+
+          console.log('Getting Compass Service...');
+          service = await server.getPrimaryService(compassServiceUUID);
+
+          console.log('Getting Compass State Characteristic...');
+          characteristic = await service.getCharacteristic(compassStateUUID);
+
+          await characteristic.startNotifications();
+
+          characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+
+          console.log('Connected!');
+        } catch (error) {
+          console.error('Error: ', error);
+        }
+      }
+
+      function handleCharacteristicValueChanged(event) {
+        let value = event.target.value;
+        let compassState = parseCompassState(value);
+        updateDisplay(compassState);
+      }
+
+      function updateDisplay(compassState) {
+        let container = document.getElementById('compassState');
+        container.innerHTML = '';  // Clear previous data
+        for (let key in compassState) {
+          let row = document.createElement('div');
+          row.className = 'data-row';
+          let keySpan = document.createElement('span');
+          keySpan.className = 'data-key';
+          keySpan.textContent = key + ':';
+          let valueSpan = document.createElement('span');
+          valueSpan.textContent = JSON.stringify(compassState[key]);
+          row.appendChild(keySpan);
+          row.appendChild(valueSpan);
+          container.appendChild(row);
+        }
+      }
+      function parseCompassState(data) {
+            let compassState = {
+                //
+//8 16 17 18 22 26 30 34 38 42 46 50 51 52 56 57 57 
+                lattitude: data.getFloat64(0, true),
+                longtitude: data.getFloat64(8, true),
+                havePosition: !!data.getUint8(16),
+                closed: !!data.getUint8(17),
+                servoSpeed: data.getInt32(18, true),
+                heading: data.getInt32(22, true),
+                dial: data.getInt32(26, true),
+                batteryVoltage: data.getFloat32(30, true),
+                batteryLevel: data.getInt32(34, true),
+                destination: [
+                    data.getFloat64(38, true),
+                    data.getFloat64(46, true)
+                ],
+                direction: data.getFloat32(54, true),
+                distance: data.getFloat32(58, true),
+                disableMotor: !!data.getUint8(62),
+                spinMotor: !!data.getUint8(63),
+                spinSpeed: data.getInt16(64, true),
+                calibrate: !!data.getUint8(68),
+                calibrateTarget: data.getInt16(69, true),
+            };
+
+            return compassState;
+        }
+
+
+
+      function disconnect() {
+        if (!device) {
+          return;
+        }
+        console.log('Disconnecting from Bluetooth Device...');
+        if (device.gatt.connected) {
+          device.gatt.disconnect();
+        } else {
+          console.log('Bluetooth Device is already disconnected');
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <h1>Status</h1><br>
+    <a href="index.html">Calibration</a>
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <p id="compassState"></p>
+  </body>
+</html>
