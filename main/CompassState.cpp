@@ -42,10 +42,11 @@ void printCompassState(const CompassState& state) {
   Serial.print("\tDial: ");
   Serial.print(state.dial);
 
+  Serial.print(" \tCurrent calibration: ");
+  Serial.print(state.currentCalibration[0],0);
 
   Serial.print(" \tCalibrate: ");
   Serial.print(state.calibrate?String(state.calibrateTarget):"false");
-
 
   Serial.print("\tMotor: ");
   Serial.print(state.disableMotor?"off": (state.spinMotor?"spin":"on"));
@@ -53,7 +54,7 @@ void printCompassState(const CompassState& state) {
   Serial.print("\tSpeed: ");
   Serial.print(state.spinMotor?state.spinSpeed:state.servoSpeed);
 
-  Serial.print("\tBatt: ");
+  Serial.print("\tBattery: ");
   Serial.print(state.batteryVoltage);
   Serial.print("v, ");
   Serial.print(state.batteryLevel);

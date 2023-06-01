@@ -26,6 +26,9 @@ struct CompassState{
   bool calibrate = false; // are we in calibration state
   int calibrateTarget = -1; // dial position for calibration
   // TODO: add command to stop calibration
+
+
+  float currentCalibration[13];
 };
 
 void printCompassState(const CompassState& state);
