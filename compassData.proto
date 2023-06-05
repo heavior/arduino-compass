@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package compass;
+
+message Coordinate {
+    double latitude = 1;
+    double longitude = 2;
+}
+
+message CompassState {
+    Coordinate location = 1;  // Current coordinates from GPS
+    bool havePosition = 2; // do we have gps reading or not
+    bool closed = 3;// closed lid (based on hall sensor)
+    int32 servoSpeed = 4;
+    int32 heading = 5;  // direction from north (degrees)
+    int32 dial = 6; // current dial position (degrees)
+    float batteryVoltage = 7;
+    int32 batteryLevel = 8;  // battery level - %
+    Coordinate destination = 9;
+    float direction = 10;   // direction to the destination (degrees)
+    float distance = 11;    // distance to destination (meters)
+    bool disableMotor = 12;
+    bool spinMotor = 13;
+    int32 spinSpeed = 14;
+    bool calibrate = 15;  // are we in calibration state
+    int32 calibrateTarget = 16;  // encoder position for calibration
+    repeated float currentCalibration = 17;  // current calibration values, using a repeated field to represent an array
+}
+
+message CompassConfig {
+  // Actual configuration
+  int32 encoderZeroDialNorth = 1;  // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
+
+  // Debug parameters
+  bool interpolateCalibrations = 2; // if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
+  bool useDestination = 3; // if false - ignore destination and GPS, point to fixDirection on the dial
+  bool useCompass = 4; // if false - ignore magnetometer, set fixDirection on the dial
+
+  int32 fixDirection = 5; 
+
+  uint32 delay = 6; // if delay 50, accelerometer doesn't always have time to read
+  bool ignoreHallSensor = 7; 
+  bool debugHall = 8; 
+  bool enableBluetooth = 9; 
+  bool compensateCompassForTilt = 10; // flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
+}

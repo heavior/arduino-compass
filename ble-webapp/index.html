@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
   <body>
+    <script src="//cdn.jsdelivr.net/npm/protobufjs@7.X.X/dist/protobuf.min.js"></script>
+    
     <button id="connect">Connect to Arduino</button>
     <h1>Calibration</h1>
     <a href="status.html">Status</a><br>
@@ -229,7 +231,7 @@
             }});
       }
       function handleData(event) {
-
+        console.log("handleData",event);
 
         let value = event.target.value;
         let x = value.getFloat32(0, true);

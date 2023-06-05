@@ -3,6 +3,27 @@
 #define BLE_REVISION 2            // prod value: 2
 // #define FIX_DIAL_POSITION  0 
 
+#include "compassData.pb.h"
+/* To change the structure:
+  1) in root directory, modify compassData.proto
+  2) python3 ../nanopb/generator/nanopb_generator.py compassData.proto;mv compassData.pb.* main 
+*/
+
+compass_CompassConfig compassConfig { 
+  .encoderZeroDialNorth = 45,   // prod: 45   // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
+  .interpolateCalibrations = true, // prod value: true, if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
+  .useDestination = true,    // prod value: true, if false - ignore destination and GPS, point to fixDirection on the dial
+  .useCompass = true,        // prod value: true, if false - ignore magnetometer, set fixDirection on the dial
+
+  .fixDirection = 0,           // prod value: doesn't matter
+
+  .delay = 50, // prod value=100, if delay 50, accelrometer doesn't always have time to read
+  .ignoreHallSensor = false,  // prod value: false
+  .debugHall = false,         // prod value: false
+  .enableBluetooth = true,    // prod value: true
+  .compensateCompassForTilt = true   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
+  };
+/*
 struct CompassConfig{
   //  Actual configuration
   int encoderZeroDialNorth = 45;     // prod: 45   // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
@@ -21,7 +42,7 @@ struct CompassConfig{
   bool enableBluetooth = true;    // prod value: true
   bool compensateCompassForTilt =  true;   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
 };
-CompassConfig compassConfig;
+CompassConfig compassConfig;*/
 
 // some useful locations
 #define COORDINATES_MAN {40.786397, -119.206561}          // Burnin man - The Man - North from home
@@ -53,6 +74,7 @@ const double destination[2] = COORDINATES_NORTH;//{34.180800,-118.300850};      
 #include <math.h>
 #include <Servo.h>
 #include <TinyGPS++.h>
+#include <pb_encode.h>
 
 #if BLE_REVISION == 1
   #include <Arduino_LSM9DS1.h>
@@ -125,7 +147,27 @@ TinyGPSPlus gps;          // GPS object, reads through Serial1
 
 
 
-CompassState compassState;
+CompassState compassState{
+    .has_location= true,
+    .location ={0,0}, /* Current coordinates from GPS */
+    .havePosition=0, /* do we have gps reading or not */
+    .closed=false, /* closed lid (based on hall sensor) */
+    .servoSpeed=-1,
+    .heading=-1, /* direction from north (degrees) */
+    .dial=-1, /* current dial position (degrees) */
+    .batteryVoltage=0,
+    .batteryLevel=0, /* battery level - % */
+    .has_destination=true,
+    .destination={0,0},
+    .direction=-1, /* direction to the destination (degrees) */
+    .distance=-1, /* distance to destination (meters) */
+    .disableMotor=true,
+    .spinMotor=true,
+    .spinSpeed=-1,
+    .calibrate=false, /* are we in calibration state */
+    .calibrateTarget=-1, /* encoder position for calibration */
+    .currentCalibration_count=13
+};
 
 #if BLE_REVISION == 1
 
@@ -230,7 +272,7 @@ float lpFilter(float value, float oldValue, float alp){
 bool checkBattery(){ // return false if level is dangerous
   // measure battery voltage using analog input
   int batteryReading = analogRead(BATTERY_PIN);
-  compassState.batteryVoltage = (float)batteryReading / 1023.0 * REF_VOLTAGE * (R1 + R2) / R2;
+  compassState.batteryVoltage = (float)((int)(10*batteryReading / 1023.0 * REF_VOLTAGE * (R1 + R2) / R2))/10;
 
   // calculate battery percentage
   float remainingCapacity = (compassState.batteryVoltage - MIN_VOLTAGE) / (MAX_VOLTAGE - MIN_VOLTAGE) * 100.0;
@@ -248,12 +290,25 @@ void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
   Serial.println("Started");
 
-  compassState.destination = destination;
+  compassState.destination.latitude = destination[0];
+  compassState.destination.longitude = destination[1];
 
   if(compassConfig.enableBluetooth){
-    startBluetooth();
+
+    if (!BLE.begin()) {
+      Serial.println("Failed to initialize BLE");
+      return;
+    }
+
+    BLE.setLocalName(BLUETOOTH_NAME);
+    BLE.setDeviceName(BLUETOOTH_NAME);
+
+    setupCalibrationBLEService();
     BatteryLevelService.begin();
     setupCompassStateBLEService();
+
+    BLE.advertise();
+
   }
   pinMode(ENCODER_PIN, INPUT);
   servoMotor.attach(SERVO_PIN);
@@ -284,8 +339,8 @@ bool readGps(){ // return true if there is a good position available now.
     gps.encode(data);
   }
   if (gps.location.isUpdated()){
-    compassState.lattitude = gps.location.lat();
-    compassState.longtitude = gps.location.lng();
+    compassState.location.latitude = gps.location.lat();
+    compassState.location.longitude = gps.location.lng();
     int precision = gps.hdop.value(); // Horizontal Dim. of Precision (100ths-i32)
     /* multiply by 100s:
       <1	Ideal	Highest possible confidence level to be used for applications demanding the highest possible precision at all times.
@@ -389,15 +444,15 @@ float readCompass(float encoderValue){
 
 void updateDirection(){
   compassState.distance = gps.distanceBetween(
-    compassState.lattitude,
-    compassState.longtitude,
-    destination[0],
-    destination[1]);
+    compassState.location.latitude,
+    compassState.location.longitude,
+    compassState.destination.latitude,
+    compassState.destination.longitude);
   compassState.direction = gps.courseTo(
-    compassState.lattitude,
-    compassState.longtitude,
-    destination[0],
-    destination[1]);
+    compassState.location.latitude,
+    compassState.location.longitude,
+    compassState.destination.latitude,
+    compassState.destination.longitude);
 }
 
 int getServoSpeed(int targetDial){
@@ -559,6 +614,7 @@ void loop() {
 
   printCompassState (compassState);
   updateCompassStateBLE (compassState);
+  sendCompassConfigBLE (compassConfig);
 
   delay(compassConfig.delay);  
 }

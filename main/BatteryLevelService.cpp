@@ -6,17 +6,8 @@ BatteryLevelServiceClass::BatteryLevelServiceClass() : _batteryService("180F"), 
 }
 
 void BatteryLevelServiceClass::begin() {
-  if (!BLE.begin()) {
-    Serial.println("Starting BLE failed!");
-    while (1);
-  }
-
-  BLE.setAdvertisedService(_batteryService);  // Advertise battery service
-
   _batteryService.addCharacteristic(_batteryLevelChar);  // Add battery level characteristic
   BLE.addService(_batteryService);  // Add battery service
-
-  BLE.advertise();  // Start advertising
 }
 
 void BatteryLevelServiceClass::setBatteryLevel(int level) {

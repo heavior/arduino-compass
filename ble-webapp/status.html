@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
   <head>
+
+    <script src="http://cdn.jsdelivr.net/npm/protobufjs@7.X.X/dist/protobuf.min.js"></script>
     <title>BLE Compass</title>
     <style>
         body {
@@ -23,14 +25,25 @@
     <script>
       let compassServiceUUID = "19b10000-e8f2-537e-4f6c-d104768a1214";
       let compassStateUUID = "19b10001-e8f2-537e-4f6c-d104768a1214";
+      let compassConfigUUID = "55c3d0bf-d6d5-47f5-9222-650e7249b6f6";
+      let calibrationServiceUUID = "66c41382-675a-4ec8-af51-82456e148c79";
 
-      let device, server, service, characteristic;
-
+      let device, server, service, stateCharacteristic, configCharacteristic;
+      let CompassConfig, compassData;
       async function connect() {
+        // Load the .proto file
+        compassData = await protobuf.load("compassData.proto");
+
+        // Obtain a message type
+        CompassConfig = compassData.lookupType("CompassConfig");
+        CompassState = compassData.lookupType("CompassState");
+
+
         try {
           console.log('Requesting Bluetooth Device...');
           device = await navigator.bluetooth.requestDevice({
-            filters: [{ services: [compassServiceUUID] }]
+            filters: [{ services: [calibrationServiceUUID] }],
+            optionalServices: [compassServiceUUID]
           });
 
           console.log('Connecting to GATT Server...');
@@ -40,11 +53,15 @@
           service = await server.getPrimaryService(compassServiceUUID);
 
           console.log('Getting Compass State Characteristic...');
-          characteristic = await service.getCharacteristic(compassStateUUID);
+          stateCharacteristic = await service.getCharacteristic(compassStateUUID);
+          configCharacteristic = await service.getCharacteristic(compassConfigUUID);
 
-          await characteristic.startNotifications();
 
-          characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+          await stateCharacteristic.startNotifications();
+          await configCharacteristic.startNotifications();
+
+          stateCharacteristic.addEventListener('characteristicvaluechanged', handleStateCharacteristicValueChanged);
+          configCharacteristic.addEventListener('characteristicvaluechanged', handleConfigCharacteristicValueChanged);
 
           console.log('Connected!');
         } catch (error) {
@@ -52,14 +69,61 @@
         }
       }
 
-      function handleCharacteristicValueChanged(event) {
+        async function parseCompassConfig(buffer) {
+            // Decode the message
+            const uintbuffer = (new Uint8Array(buffer.buffer));
+            const message = await CompassConfig.decode(uintbuffer);
+            const value = await CompassConfig.toObject(message);
+
+            console.log("compass config",value);
+            return value;
+        }
+
+        function uint8ArrayToBase64(uint8Array) {
+          let binary = '';
+          const length = uint8Array.length;
+
+          for (let i = 0; i < length; i++) {
+            binary += String.fromCharCode(uint8Array[i]);
+          }
+
+          return btoa(binary);
+        }
+
+        async function parseCompassState(buffer) {
+            // Decode the message
+
+            console.log("buffer", buffer.buffer);
+            const uintbuffer = (new Uint8Array(buffer.buffer));
+//            console.log("buffer uint array", uintbuffer.join(','));
+//            console.log("buffer uint array base64", uint8ArrayToBase64(uintbuffer));
+            
+            const message = await CompassState.decode(uintbuffer);
+            const value = await CompassState.toObject(message);
+
+//            console.log("message",message);
+            console.log("cmopass state value",value);
+            return value;
+        }
+
+
+
+      async function handleConfigCharacteristicValueChanged(event) {
         let value = event.target.value;
-        let compassState = parseCompassState(value);
-        updateDisplay(compassState);
+        let compassConfig = await parseCompassConfig(value);
+        updateDisplay("compassConfig",compassConfig);
       }
 
-      function updateDisplay(compassState) {
-        let container = document.getElementById('compassState');
+
+      async function handleStateCharacteristicValueChanged(event) {
+        let value = event.target.value;
+        let compassState = await parseCompassState(value);
+        updateDisplay("compassState",compassState);
+      }
+
+      function updateDisplay(htmlid, compassState) {
+        console.log(htmlid, compassState);
+        let container = document.getElementById(htmlid);
         container.innerHTML = '';  // Clear previous data
         for (let key in compassState) {
           let row = document.createElement('div');
@@ -74,7 +138,7 @@
           container.appendChild(row);
         }
       }
-      function parseCompassState(data) {
+      /*function parseCompassState(data) {
             let compassState = {
                 //
 //8 16 17 18 22 26 30 34 38 42 46 50 51 52 56 57 57 
@@ -101,12 +165,13 @@
             };
 
             return compassState;
-        }
+        }*/
 
 
 
       function disconnect() {
         if (!device) {
+          console.log('no device');
           return;
         }
         console.log('Disconnecting from Bluetooth Device...');
@@ -123,6 +188,10 @@
     <a href="index.html">Calibration</a>
     <button onclick="connect()">Connect</button>
     <button onclick="disconnect()">Disconnect</button>
+    <h2>Compass State</h2>
     <p id="compassState"></p>
+
+    <h2>Compass Config</h2>
+    <p id="compassConfig"></p>
   </body>
 </html>
