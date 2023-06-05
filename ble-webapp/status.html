@@ -91,40 +91,37 @@
         }
 
         async function parseCompassState(buffer) {
-
             // Decode the message
-            console.log("buffer",buffer);
             const uintbuffer = (new Uint8Array(buffer.buffer));
-            console.log("buffer uint array", uintbuffer.join(','));
-
-            console.log("buffer uint array base64", uint8ArrayToBase64(uintbuffer));
+//            console.log("buffer uint array", uintbuffer.join(','));
+//            console.log("buffer uint array base64", uint8ArrayToBase64(uintbuffer));
             
             const message = await CompassState.decode(uintbuffer);
-
-            console.log("message",message);
             const value = await CompassState.toObject(message);
 
-            console.log("value",value);
+//            console.log("message",message);
+            console.log("cmopass state value",value);
             return value;
         }
 
 
 
-      function handleConfigCharacteristicValueChanged(event) {
+      async function handleConfigCharacteristicValueChanged(event) {
         let value = event.target.value;
-        let compassConfig = parseCompassConfig(value);
-        console.log("compassConfig", compassConfig)
+        let compassConfig = await parseCompassConfig(value);
+        updateDisplay("compassConfig",compassConfig);
       }
 
 
-      function handleStateCharacteristicValueChanged(event) {
+      async function handleStateCharacteristicValueChanged(event) {
         let value = event.target.value;
-        let compassState = parseCompassState(value);
-        updateDisplay(compassState);
+        let compassState = await parseCompassState(value);
+        updateDisplay("compassState",compassState);
       }
 
-      function updateDisplay(compassState) {
-        let container = document.getElementById('compassState');
+      function updateDisplay(htmlid, compassState) {
+        console.log(htmlid, compassState);
+        let container = document.getElementById(htmlid);
         container.innerHTML = '';  // Clear previous data
         for (let key in compassState) {
           let row = document.createElement('div');
@@ -189,6 +186,10 @@
     <a href="index.html">Calibration</a>
     <button onclick="connect()">Connect</button>
     <button onclick="disconnect()">Disconnect</button>
+    <h2>Compass State</h2>
     <p id="compassState"></p>
+
+    <h2>Compass Config</h2>
+    <p id="compassConfig"></p>
   </body>
 </html>

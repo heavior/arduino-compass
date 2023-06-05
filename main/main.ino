@@ -148,6 +148,7 @@ TinyGPSPlus gps;          // GPS object, reads through Serial1
 
 
 CompassState compassState;
+float currentCalibration[13]; /* current calibration values, using a repeated field to represent an array */
 
 #if BLE_REVISION == 1
 
@@ -384,11 +385,11 @@ float readCompass(float encoderValue){
   }
 
   if(compassConfig.interpolateCalibrations){
-    interpolateCalibration(encoderValue, compassState.currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
+    interpolateCalibration(encoderValue, currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
   }else{
-    closestCalibration(encoderValue, compassState.currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
+    closestCalibration(encoderValue, currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
   }
-  calibrateMagReading (mx, my, mz, compassState.currentCalibration);
+  calibrateMagReading (mx, my, mz, currentCalibration);
 
   IMU.readAcceleration(ax, ay, az); // this stuff works differently on rev1 and rev2 boards. Probably sensor orientation is off
   float roll = atan2(ay, az);

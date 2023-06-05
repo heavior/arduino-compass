@@ -24,10 +24,7 @@ message CompassState {
     int32 spinSpeed = 14;
     bool calibrate = 15;  // are we in calibration state
     int32 calibrateTarget = 16;  // encoder position for calibration
-    repeated float currentCalibration = 17;  // current calibration values, using a repeated field to represent an array
 }
-
-
 
 message CompassConfig {
   // Actual configuration

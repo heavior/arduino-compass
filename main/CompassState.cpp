@@ -43,9 +43,6 @@ void printCompassState(const CompassState& state) {
   Serial.print("\tDial: ");
   Serial.print(state.dial);
 
-  Serial.print(" \tCurrent calibration: ");
-  Serial.print(state.currentCalibration[0],0);
-
   Serial.print(" \tCalibrate: ");
   Serial.print(state.calibrate?String(state.calibrateTarget):"false");
 
@@ -74,10 +71,10 @@ void setupCompassStateBLEService() {
 void updateCompassStateBLE(const compass_CompassState& state) {
 
   // Serialize the state structure
-  uint8_t buffer[compass_CompassConfig_size];
+  uint8_t buffer[compass_CompassState_size];
   pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
 
-  bool status = pb_encode(&stream, compass_CompassConfig_fields, &state);
+  bool status = pb_encode(&stream, compass_CompassState_fields, &state);
 
   if (!status) {
     Serial.println("Compass state encoding failed");
