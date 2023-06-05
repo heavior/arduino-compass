@@ -251,9 +251,21 @@ void setup() {
   compassState.destination = destination;
 
   if(compassConfig.enableBluetooth){
-    startBluetooth();
+
+    if (!BLE.begin()) {
+      Serial.println("Failed to initialize BLE");
+      return;
+    }
+
+    BLE.setLocalName(BLUETOOTH_NAME);
+    BLE.setDeviceName(BLUETOOTH_NAME);
+
+    setupCalibrationBLEService();
     BatteryLevelService.begin();
     setupCompassStateBLEService();
+
+    BLE.advertise();
+
   }
   pinMode(ENCODER_PIN, INPUT);
   servoMotor.attach(SERVO_PIN);

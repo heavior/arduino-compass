@@ -28,7 +28,7 @@ struct CompassState{
   // TODO: add command to stop calibration
 
 
-  float currentCalibration[13];
+  float  [13];
 };
 
 void printCompassState(const CompassState& state);

@@ -31,21 +31,11 @@ BLECharacteristic calibrationDataCharacteristic(BLUETOOTH_CALIBRATE_CHARACTERIST
 BLEUnsignedIntCharacteristic calibrationControlCharacteristic(BLUETOOTH_CALIBRATE_CONTROL_CHARACTERISTIC_UUID, BLEWrite | BLENotify);
 BLEDevice hostDevice;
 
-void startBluetooth(){
-  if (!BLE.begin()) {
-    Serial.println("Failed to initialize BLE");
-    return;
-  }
-
-  BLE.setLocalName(BLUETOOTH_NAME);
-  BLE.setDeviceName(BLUETOOTH_NAME);
+void setupCalibrationBLEService(){
   BLE.setAdvertisedService(calibrateCompassService);
   calibrateCompassService.addCharacteristic(calibrationDataCharacteristic);
   calibrateCompassService.addCharacteristic(calibrationControlCharacteristic);
-
   BLE.addService(calibrateCompassService);
-
-  BLE.advertise();
 }
 
 bool checkBluetooth(){

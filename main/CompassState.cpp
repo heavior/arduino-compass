@@ -64,16 +64,8 @@ void printCompassState(const CompassState& state) {
 }
 
 void setupCompassStateBLEService() {
-  if (!BLE.begin()) {
-    Serial.println("Starting BLE failed!");
-    while (1);
-  }
-
-  BLE.setAdvertisedService(compassService);
   compassService.addCharacteristic(compassStateCharacteristic);
   BLE.addService(compassService);
-
-  BLE.advertise();
 }
 
 size_t serializeCompassState(const CompassState& state, uint8_t* buffer) {
