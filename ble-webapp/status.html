@@ -36,6 +36,7 @@
 
         // Obtain a message type
         CompassConfig = compassData.lookupType("CompassConfig");
+        CompassState = compassData.lookupType("CompassState");
 
 
         try {
@@ -68,23 +69,45 @@
         }
       }
 
-        
-              // This example uses async/await, but you can also use promises if you prefer.
         async function parseCompassConfig(buffer) {
-            //const protobuf = require("protobufjs");
+            // Decode the message
+            const uintbuffer = (new Uint8Array(buffer.buffer));
+            const message = await CompassConfig.decode(uintbuffer);
+            const value = await CompassConfig.toObject(message);
+
+            console.log("compass config",value);
+            return value;
+        }
+
+        function uint8ArrayToBase64(uint8Array) {
+          let binary = '';
+          const length = uint8Array.length;
+
+          for (let i = 0; i < length; i++) {
+            binary += String.fromCharCode(uint8Array[i]);
+          }
+
+          return btoa(binary);
+        }
+
+        async function parseCompassState(buffer) {
 
             // Decode the message
             console.log("buffer",buffer);
             const uintbuffer = (new Uint8Array(buffer.buffer));
             console.log("buffer uint array", uintbuffer.join(','));
-            const message = await CompassConfig.decode(uintbuffer);
+
+            console.log("buffer uint array base64", uint8ArrayToBase64(uintbuffer));
+            
+            const message = await CompassState.decode(uintbuffer);
 
             console.log("message",message);
-            const value = await CompassConfig.toObject(message);
+            const value = await CompassState.toObject(message);
 
             console.log("value",value);
             return value;
         }
+
 
 
       function handleConfigCharacteristicValueChanged(event) {
@@ -116,7 +139,7 @@
           container.appendChild(row);
         }
       }
-      function parseCompassState(data) {
+      /*function parseCompassState(data) {
             let compassState = {
                 //
 //8 16 17 18 22 26 30 34 38 42 46 50 51 52 56 57 57 
@@ -143,7 +166,7 @@
             };
 
             return compassState;
-        }
+        }*/
 
 
 

@@ -10,6 +10,34 @@
 #endif
 
 /* Struct definitions */
+typedef struct _compass_Coordinate {
+    double latitude;
+    double longitude;
+} compass_Coordinate;
+
+typedef struct _compass_CompassState {
+    bool has_location;
+    compass_Coordinate location; /* Current coordinates from GPS */
+    bool havePosition; /* do we have gps reading or not */
+    bool closed; /* closed lid (based on hall sensor) */
+    int32_t servoSpeed;
+    int32_t heading; /* direction from north (degrees) */
+    int32_t dial; /* current dial position (degrees) */
+    float batteryVoltage;
+    int32_t batteryLevel; /* battery level - % */
+    bool has_destination;
+    compass_Coordinate destination;
+    float direction; /* direction to the destination (degrees) */
+    float distance; /* distance to destination (meters) */
+    bool disableMotor;
+    bool spinMotor;
+    int32_t spinSpeed;
+    bool calibrate; /* are we in calibration state */
+    int32_t calibrateTarget; /* encoder position for calibration */
+    pb_size_t currentCalibration_count;
+    float currentCalibration[13]; /* current calibration values, using a repeated field to represent an array */
+} compass_CompassState;
+
 typedef struct _compass_CompassConfig {
     /* Actual configuration */
     int32_t encoderZeroDialNorth; /* where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet! */
@@ -25,38 +53,39 @@ typedef struct _compass_CompassConfig {
     bool compensateCompassForTilt; /* flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage */
 } compass_CompassConfig;
 
-typedef struct _compass_CompassState {
-    double latitude;
-    double longitude; /* Current coordinates from GPS */
-    bool havePosition; /* do we have gps reading or not */
-    bool closed; /* closed lid (hall sensor) */
-    int32_t servoSpeed; /* current servo speed */
-    int32_t heading; /* direction from north (angles) */
-    int32_t dial; /* current dial position (angles) */
-    float batteryVoltage; /* current voltage */
-    int32_t batteryLevel; /* battery level - % */
-    float direction;
-    float distance;
-    bool disableMotor;
-    bool spinMotor;
-    int32_t spinSpeed;
-    bool calibrate; /* are we in calibration state */
-    int32_t calibrateTarget; /* dial position for calibration */
-    pb_callback_t currentCalibration; /* current calibration values, using a repeated field to represent an array */
-} compass_CompassState;
-
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* Initializer values for message structs */
+#define compass_Coordinate_init_default          {0, 0}
+#define compass_CompassState_init_default        {false, compass_Coordinate_init_default, 0, 0, 0, 0, 0, 0, 0, false, compass_Coordinate_init_default, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define compass_CompassConfig_init_default       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define compass_CompassState_init_default        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {{NULL}, NULL}}
+#define compass_Coordinate_init_zero             {0, 0}
+#define compass_CompassState_init_zero           {false, compass_Coordinate_init_zero, 0, 0, 0, 0, 0, 0, 0, false, compass_Coordinate_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define compass_CompassConfig_init_zero          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-#define compass_CompassState_init_zero           {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
+#define compass_Coordinate_latitude_tag          1
+#define compass_Coordinate_longitude_tag         2
+#define compass_CompassState_location_tag        1
+#define compass_CompassState_havePosition_tag    2
+#define compass_CompassState_closed_tag          3
+#define compass_CompassState_servoSpeed_tag      4
+#define compass_CompassState_heading_tag         5
+#define compass_CompassState_dial_tag            6
+#define compass_CompassState_batteryVoltage_tag  7
+#define compass_CompassState_batteryLevel_tag    8
+#define compass_CompassState_destination_tag     9
+#define compass_CompassState_direction_tag       10
+#define compass_CompassState_distance_tag        11
+#define compass_CompassState_disableMotor_tag    12
+#define compass_CompassState_spinMotor_tag       13
+#define compass_CompassState_spinSpeed_tag       14
+#define compass_CompassState_calibrate_tag       15
+#define compass_CompassState_calibrateTarget_tag 16
+#define compass_CompassState_currentCalibration_tag 17
 #define compass_CompassConfig_encoderZeroDialNorth_tag 1
 #define compass_CompassConfig_interpolateCalibrations_tag 2
 #define compass_CompassConfig_useDestination_tag 3
@@ -67,25 +96,37 @@ extern "C" {
 #define compass_CompassConfig_debugHall_tag      8
 #define compass_CompassConfig_enableBluetooth_tag 9
 #define compass_CompassConfig_compensateCompassForTilt_tag 10
-#define compass_CompassState_latitude_tag        1
-#define compass_CompassState_longitude_tag       2
-#define compass_CompassState_havePosition_tag    3
-#define compass_CompassState_closed_tag          4
-#define compass_CompassState_servoSpeed_tag      5
-#define compass_CompassState_heading_tag         6
-#define compass_CompassState_dial_tag            7
-#define compass_CompassState_batteryVoltage_tag  8
-#define compass_CompassState_batteryLevel_tag    9
-#define compass_CompassState_direction_tag       11
-#define compass_CompassState_distance_tag        12
-#define compass_CompassState_disableMotor_tag    13
-#define compass_CompassState_spinMotor_tag       14
-#define compass_CompassState_spinSpeed_tag       15
-#define compass_CompassState_calibrate_tag       16
-#define compass_CompassState_calibrateTarget_tag 17
-#define compass_CompassState_currentCalibration_tag 18
 
 /* Struct field encoding specification for nanopb */
+#define compass_Coordinate_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, DOUBLE,   latitude,          1) \
+X(a, STATIC,   SINGULAR, DOUBLE,   longitude,         2)
+#define compass_Coordinate_CALLBACK NULL
+#define compass_Coordinate_DEFAULT NULL
+
+#define compass_CompassState_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  location,          1) \
+X(a, STATIC,   SINGULAR, BOOL,     havePosition,      2) \
+X(a, STATIC,   SINGULAR, BOOL,     closed,            3) \
+X(a, STATIC,   SINGULAR, INT32,    servoSpeed,        4) \
+X(a, STATIC,   SINGULAR, INT32,    heading,           5) \
+X(a, STATIC,   SINGULAR, INT32,    dial,              6) \
+X(a, STATIC,   SINGULAR, FLOAT,    batteryVoltage,    7) \
+X(a, STATIC,   SINGULAR, INT32,    batteryLevel,      8) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  destination,       9) \
+X(a, STATIC,   SINGULAR, FLOAT,    direction,        10) \
+X(a, STATIC,   SINGULAR, FLOAT,    distance,         11) \
+X(a, STATIC,   SINGULAR, BOOL,     disableMotor,     12) \
+X(a, STATIC,   SINGULAR, BOOL,     spinMotor,        13) \
+X(a, STATIC,   SINGULAR, INT32,    spinSpeed,        14) \
+X(a, STATIC,   SINGULAR, BOOL,     calibrate,        15) \
+X(a, STATIC,   SINGULAR, INT32,    calibrateTarget,  16) \
+X(a, STATIC,   REPEATED, FLOAT,    currentCalibration,  17)
+#define compass_CompassState_CALLBACK NULL
+#define compass_CompassState_DEFAULT NULL
+#define compass_CompassState_location_MSGTYPE compass_Coordinate
+#define compass_CompassState_destination_MSGTYPE compass_Coordinate
+
 #define compass_CompassConfig_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, INT32,    encoderZeroDialNorth,   1) \
 X(a, STATIC,   SINGULAR, BOOL,     interpolateCalibrations,   2) \
@@ -100,37 +141,19 @@ X(a, STATIC,   SINGULAR, BOOL,     compensateCompassForTilt,  10)
 #define compass_CompassConfig_CALLBACK NULL
 #define compass_CompassConfig_DEFAULT NULL
 
-#define compass_CompassState_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, DOUBLE,   latitude,          1) \
-X(a, STATIC,   SINGULAR, DOUBLE,   longitude,         2) \
-X(a, STATIC,   SINGULAR, BOOL,     havePosition,      3) \
-X(a, STATIC,   SINGULAR, BOOL,     closed,            4) \
-X(a, STATIC,   SINGULAR, INT32,    servoSpeed,        5) \
-X(a, STATIC,   SINGULAR, INT32,    heading,           6) \
-X(a, STATIC,   SINGULAR, INT32,    dial,              7) \
-X(a, STATIC,   SINGULAR, FLOAT,    batteryVoltage,    8) \
-X(a, STATIC,   SINGULAR, INT32,    batteryLevel,      9) \
-X(a, STATIC,   SINGULAR, FLOAT,    direction,        11) \
-X(a, STATIC,   SINGULAR, FLOAT,    distance,         12) \
-X(a, STATIC,   SINGULAR, BOOL,     disableMotor,     13) \
-X(a, STATIC,   SINGULAR, BOOL,     spinMotor,        14) \
-X(a, STATIC,   SINGULAR, INT32,    spinSpeed,        15) \
-X(a, STATIC,   SINGULAR, BOOL,     calibrate,        16) \
-X(a, STATIC,   SINGULAR, INT32,    calibrateTarget,  17) \
-X(a, CALLBACK, REPEATED, FLOAT,    currentCalibration,  18)
-#define compass_CompassState_CALLBACK pb_default_field_callback
-#define compass_CompassState_DEFAULT NULL
-
-extern const pb_msgdesc_t compass_CompassConfig_msg;
+extern const pb_msgdesc_t compass_Coordinate_msg;
 extern const pb_msgdesc_t compass_CompassState_msg;
+extern const pb_msgdesc_t compass_CompassConfig_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
-#define compass_CompassConfig_fields &compass_CompassConfig_msg
+#define compass_Coordinate_fields &compass_Coordinate_msg
 #define compass_CompassState_fields &compass_CompassState_msg
+#define compass_CompassConfig_fields &compass_CompassConfig_msg
 
 /* Maximum encoded size of messages (where known) */
-/* compass_CompassState_size depends on runtime parameters */
 #define compass_CompassConfig_size               42
+#define compass_CompassState_size                210
+#define compass_Coordinate_size                  18
 
 #ifdef __cplusplus
 } /* extern "C" */

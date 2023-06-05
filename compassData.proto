@@ -1,7 +1,33 @@
-
 syntax = "proto3";
 
 package compass;
+
+message Coordinate {
+    double latitude = 1;
+    double longitude = 2;
+}
+
+message CompassState {
+    Coordinate location = 1;  // Current coordinates from GPS
+    bool havePosition = 2; // do we have gps reading or not
+    bool closed = 3;// closed lid (based on hall sensor)
+    int32 servoSpeed = 4;
+    int32 heading = 5;  // direction from north (degrees)
+    int32 dial = 6; // current dial position (degrees)
+    float batteryVoltage = 7;
+    int32 batteryLevel = 8;  // battery level - %
+    Coordinate destination = 9;
+    float direction = 10;   // direction to the destination (degrees)
+    float distance = 11;    // distance to destination (meters)
+    bool disableMotor = 12;
+    bool spinMotor = 13;
+    int32 spinSpeed = 14;
+    bool calibrate = 15;  // are we in calibration state
+    int32 calibrateTarget = 16;  // encoder position for calibration
+    repeated float currentCalibration = 17;  // current calibration values, using a repeated field to represent an array
+}
+
+
 
 message CompassConfig {
   // Actual configuration
@@ -19,31 +45,4 @@ message CompassConfig {
   bool debugHall = 8; 
   bool enableBluetooth = 9; 
   bool compensateCompassForTilt = 10; // flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
-}
-
-message CompassState {
-  double latitude = 1;
-  double longitude = 2; // Current coordinates from GPS
-  bool havePosition = 3; // do we have gps reading or not
-  bool closed = 4;   // closed lid (hall sensor)
-  int32 servoSpeed = 5; // current servo speed
-  int32 heading = 6; // direction from north (angles)
-  int32 dial = 7; // current dial position (angles)
-  float batteryVoltage = 8; // current voltage
-  int32 batteryLevel = 9; // battery level - %
-
-  // No direct equivalent in protobuf for pointer types
-  // Consider using a separate message or a wrapper for this field
-
-  float direction = 11;
-  float distance = 12;
-
-  bool disableMotor = 13; 
-  bool spinMotor = 14; 
-  int32 spinSpeed = 15;
-
-  bool calibrate = 16; // are we in calibration state
-  int32 calibrateTarget = 17; // dial position for calibration
-  
-  repeated float currentCalibration = 18; // current calibration values, using a repeated field to represent an array
 }

@@ -6,8 +6,7 @@
 #include "compassData.pb.h"
 /* To change the structure:
   1) in root directory, modify compassData.proto
-  2) python3 ../nanopb/generator/nanopb_generator.py compassData.proto
-  3) copy .pb.c anc .pb.h to "main" directory
+  2) python3 ../nanopb/generator/nanopb_generator.py compassData.proto;mv compassData.pb.* main 
 */
 
 compass_CompassConfig compassConfig { 
@@ -271,7 +270,8 @@ void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
   Serial.println("Started");
 
-  compassState.destination = destination;
+  compassState.destination.latitude = destination[0];
+  compassState.destination.longitude = destination[1];
 
   if(compassConfig.enableBluetooth){
 
@@ -319,8 +319,8 @@ bool readGps(){ // return true if there is a good position available now.
     gps.encode(data);
   }
   if (gps.location.isUpdated()){
-    compassState.lattitude = gps.location.lat();
-    compassState.longtitude = gps.location.lng();
+    compassState.location.latitude = gps.location.lat();
+    compassState.location.longitude = gps.location.lng();
     int precision = gps.hdop.value(); // Horizontal Dim. of Precision (100ths-i32)
     /* multiply by 100s:
       <1	Ideal	Highest possible confidence level to be used for applications demanding the highest possible precision at all times.
@@ -424,15 +424,15 @@ float readCompass(float encoderValue){
 
 void updateDirection(){
   compassState.distance = gps.distanceBetween(
-    compassState.lattitude,
-    compassState.longtitude,
-    destination[0],
-    destination[1]);
+    compassState.location.latitude,
+    compassState.location.longitude,
+    compassState.destination.latitude,
+    compassState.destination.longitude);
   compassState.direction = gps.courseTo(
-    compassState.lattitude,
-    compassState.longtitude,
-    destination[0],
-    destination[1]);
+    compassState.location.latitude,
+    compassState.location.longitude,
+    compassState.destination.latitude,
+    compassState.destination.longitude);
 }
 
 int getServoSpeed(int targetDial){

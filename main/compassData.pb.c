@@ -6,10 +6,13 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
-PB_BIND(compass_CompassConfig, compass_CompassConfig, AUTO)
+PB_BIND(compass_Coordinate, compass_Coordinate, AUTO)
 
 
 PB_BIND(compass_CompassState, compass_CompassState, AUTO)
+
+
+PB_BIND(compass_CompassConfig, compass_CompassConfig, AUTO)
 
 
 
