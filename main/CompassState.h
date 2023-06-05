@@ -4,6 +4,9 @@
 #include "Arduino.h"
 #include "ArduinoBLE.h"
 
+#include <pb_encode.h>
+#include "compassData.pb.h"
+
 struct CompassState{
   double lattitude = 0.0;
   double longtitude = 0.0; // Current coordinates from GPS
@@ -35,6 +38,8 @@ void printCompassState(const CompassState& state);
 
 
 void updateCompassStateBLE(const CompassState& state);
+void sendCompassConfigBLE(const compass_CompassConfig& state);
+
 void setupCompassStateBLEService();
 
 extern BLEService compassService;

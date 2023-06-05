@@ -3,6 +3,28 @@
 #define BLE_REVISION 2            // prod value: 2
 // #define FIX_DIAL_POSITION  0 
 
+#include "compassData.pb.h"
+/* To change the structure:
+  1) in root directory, modify compassData.proto
+  2) python3 ../nanopb/generator/nanopb_generator.py compassData.proto
+  3) copy .pb.c anc .pb.h to "main" directory
+*/
+
+compass_CompassConfig compassConfig { 
+  .encoderZeroDialNorth = 45,   // prod: 45   // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
+  .interpolateCalibrations = true, // prod value: true, if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
+  .useDestination = true,    // prod value: true, if false - ignore destination and GPS, point to fixDirection on the dial
+  .useCompass = true,        // prod value: true, if false - ignore magnetometer, set fixDirection on the dial
+
+  .fixDirection = 0,           // prod value: doesn't matter
+
+  .delay = 50, // prod value=100, if delay 50, accelrometer doesn't always have time to read
+  .ignoreHallSensor = false,  // prod value: false
+  .debugHall = false,         // prod value: false
+  .enableBluetooth = true,    // prod value: true
+  .compensateCompassForTilt = true   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
+  };
+/*
 struct CompassConfig{
   //  Actual configuration
   int encoderZeroDialNorth = 45;     // prod: 45   // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
@@ -21,7 +43,7 @@ struct CompassConfig{
   bool enableBluetooth = true;    // prod value: true
   bool compensateCompassForTilt =  true;   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
 };
-CompassConfig compassConfig;
+CompassConfig compassConfig;*/
 
 // some useful locations
 #define COORDINATES_MAN {40.786397, -119.206561}          // Burnin man - The Man - North from home
@@ -53,6 +75,7 @@ const double destination[2] = COORDINATES_NORTH;//{34.180800,-118.300850};      
 #include <math.h>
 #include <Servo.h>
 #include <TinyGPS++.h>
+#include <pb_encode.h>
 
 #if BLE_REVISION == 1
   #include <Arduino_LSM9DS1.h>
@@ -230,7 +253,7 @@ float lpFilter(float value, float oldValue, float alp){
 bool checkBattery(){ // return false if level is dangerous
   // measure battery voltage using analog input
   int batteryReading = analogRead(BATTERY_PIN);
-  compassState.batteryVoltage = (float)batteryReading / 1023.0 * REF_VOLTAGE * (R1 + R2) / R2;
+  compassState.batteryVoltage = (float)((int)(10*batteryReading / 1023.0 * REF_VOLTAGE * (R1 + R2) / R2))/10;
 
   // calculate battery percentage
   float remainingCapacity = (compassState.batteryVoltage - MIN_VOLTAGE) / (MAX_VOLTAGE - MIN_VOLTAGE) * 100.0;
@@ -571,6 +594,7 @@ void loop() {
 
   printCompassState (compassState);
   updateCompassStateBLE (compassState);
+  sendCompassConfigBLE (compassConfig);
 
   delay(compassConfig.delay);  
 }

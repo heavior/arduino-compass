@@ -1,11 +1,20 @@
 #include "CompassState.h"
 
+#include <pb_encode.h>
+#include "compassData.pb.h"
+
 // UUID for the service and characteristic
 #define COMPASS_SERVICE_UUID "19B10000-E8F2-537E-4F6C-D104768A1214"
 #define COMPASS_STATE_UUID "19B10001-E8F2-537E-4F6C-D104768A1214"
+#define COMPASS_CONFIG_UUID "55c3d0bf-d6d5-47f5-9222-650e7249b6f6"
+
+#ifndef compass_CompassConfig_size
+#define compass_CompassConfig_size 512
+#endif
 
 BLEService compassService(COMPASS_SERVICE_UUID);
 BLECharacteristic compassStateCharacteristic(COMPASS_STATE_UUID, BLENotify, sizeof(CompassState));
+BLECharacteristic compassConfigCharacteristic(COMPASS_CONFIG_UUID, BLERead | BLEWrite | BLENotify, compass_CompassConfig_size);
 
 void printCompassState(const CompassState& state) {
   Serial.print("\tClosed: ");
@@ -65,6 +74,7 @@ void printCompassState(const CompassState& state) {
 
 void setupCompassStateBLEService() {
   compassService.addCharacteristic(compassStateCharacteristic);
+  compassService.addCharacteristic(compassConfigCharacteristic);
   BLE.addService(compassService);
 }
 
@@ -181,7 +191,28 @@ void updateCompassStateBLE(const CompassState& state) {
   // Serialize the state structure
   uint8_t data[sizeof(state)];
   size_t len = serializeCompassState(state, data);
-  
   // Update the characteristic value
   compassStateCharacteristic.writeValue(data, len);
+}
+
+
+void sendCompassConfigBLE(const compass_CompassConfig& state) {
+  // Serialize the state structure
+  uint8_t buffer[compass_CompassConfig_size];
+  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+
+  bool status = pb_encode(&stream, compass_CompassConfig_fields, &state);
+
+
+
+  if (!status) {
+    Serial.println("Encoding failed");
+    Serial.println(PB_GET_ERROR(&stream));
+  } else {
+    // send it over bluetooth
+    compassConfigCharacteristic.writeValue(buffer, stream.bytes_written);
+
+    Serial.print("compass confid len:");
+    Serial.print(stream.bytes_written);
+  }
 }

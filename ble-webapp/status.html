@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
   <head>
+
+    <script src="http://cdn.jsdelivr.net/npm/protobufjs@7.X.X/dist/protobuf.min.js"></script>
     <title>BLE Compass</title>
     <style>
         body {
@@ -23,14 +25,24 @@
     <script>
       let compassServiceUUID = "19b10000-e8f2-537e-4f6c-d104768a1214";
       let compassStateUUID = "19b10001-e8f2-537e-4f6c-d104768a1214";
+      let compassConfigUUID = "55c3d0bf-d6d5-47f5-9222-650e7249b6f6";
+      let calibrationServiceUUID = "66c41382-675a-4ec8-af51-82456e148c79";
 
-      let device, server, service, characteristic;
-
+      let device, server, service, stateCharacteristic, configCharacteristic;
+      let CompassConfig, compassData;
       async function connect() {
+        // Load the .proto file
+        compassData = await protobuf.load("compassData.proto");
+
+        // Obtain a message type
+        CompassConfig = compassData.lookupType("CompassConfig");
+
+
         try {
           console.log('Requesting Bluetooth Device...');
           device = await navigator.bluetooth.requestDevice({
-            filters: [{ services: [compassServiceUUID] }]
+            filters: [{ services: [calibrationServiceUUID] }],
+            optionalServices: [compassServiceUUID]
           });
 
           console.log('Connecting to GATT Server...');
@@ -40,11 +52,15 @@
           service = await server.getPrimaryService(compassServiceUUID);
 
           console.log('Getting Compass State Characteristic...');
-          characteristic = await service.getCharacteristic(compassStateUUID);
+          stateCharacteristic = await service.getCharacteristic(compassStateUUID);
+          configCharacteristic = await service.getCharacteristic(compassConfigUUID);
 
-          await characteristic.startNotifications();
 
-          characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged);
+          await stateCharacteristic.startNotifications();
+          await configCharacteristic.startNotifications();
+
+          stateCharacteristic.addEventListener('characteristicvaluechanged', handleStateCharacteristicValueChanged);
+          configCharacteristic.addEventListener('characteristicvaluechanged', handleConfigCharacteristicValueChanged);
 
           console.log('Connected!');
         } catch (error) {
@@ -52,7 +68,33 @@
         }
       }
 
-      function handleCharacteristicValueChanged(event) {
+        
+              // This example uses async/await, but you can also use promises if you prefer.
+        async function parseCompassConfig(buffer) {
+            //const protobuf = require("protobufjs");
+
+            // Decode the message
+            console.log("buffer",buffer);
+            const uintbuffer = (new Uint8Array(buffer.buffer));
+            console.log("buffer uint array", uintbuffer.join(','));
+            const message = await CompassConfig.decode(uintbuffer);
+
+            console.log("message",message);
+            const value = await CompassConfig.toObject(message);
+
+            console.log("value",value);
+            return value;
+        }
+
+
+      function handleConfigCharacteristicValueChanged(event) {
+        let value = event.target.value;
+        let compassConfig = parseCompassConfig(value);
+        console.log("compassConfig", compassConfig)
+      }
+
+
+      function handleStateCharacteristicValueChanged(event) {
         let value = event.target.value;
         let compassState = parseCompassState(value);
         updateDisplay(compassState);
@@ -107,6 +149,7 @@
 
       function disconnect() {
         if (!device) {
+          console.log('no device');
           return;
         }
         console.log('Disconnecting from Bluetooth Device...');

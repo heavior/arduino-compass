@@ -1,0 +1,49 @@
+
+syntax = "proto3";
+
+package compass;
+
+message CompassConfig {
+  // Actual configuration
+  int32 encoderZeroDialNorth = 1;  // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
+
+  // Debug parameters
+  bool interpolateCalibrations = 2; // if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
+  bool useDestination = 3; // if false - ignore destination and GPS, point to fixDirection on the dial
+  bool useCompass = 4; // if false - ignore magnetometer, set fixDirection on the dial
+
+  int32 fixDirection = 5; 
+
+  uint32 delay = 6; // if delay 50, accelerometer doesn't always have time to read
+  bool ignoreHallSensor = 7; 
+  bool debugHall = 8; 
+  bool enableBluetooth = 9; 
+  bool compensateCompassForTilt = 10; // flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
+}
+
+message CompassState {
+  double latitude = 1;
+  double longitude = 2; // Current coordinates from GPS
+  bool havePosition = 3; // do we have gps reading or not
+  bool closed = 4;   // closed lid (hall sensor)
+  int32 servoSpeed = 5; // current servo speed
+  int32 heading = 6; // direction from north (angles)
+  int32 dial = 7; // current dial position (angles)
+  float batteryVoltage = 8; // current voltage
+  int32 batteryLevel = 9; // battery level - %
+
+  // No direct equivalent in protobuf for pointer types
+  // Consider using a separate message or a wrapper for this field
+
+  float direction = 11;
+  float distance = 12;
+
+  bool disableMotor = 13; 
+  bool spinMotor = 14; 
+  int32 spinSpeed = 15;
+
+  bool calibrate = 16; // are we in calibration state
+  int32 calibrateTarget = 17; // dial position for calibration
+  
+  repeated float currentCalibration = 18; // current calibration values, using a repeated field to represent an array
+}
