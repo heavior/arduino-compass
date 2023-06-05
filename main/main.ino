@@ -147,8 +147,27 @@ TinyGPSPlus gps;          // GPS object, reads through Serial1
 
 
 
-CompassState compassState;
-float currentCalibration[13]; /* current calibration values, using a repeated field to represent an array */
+CompassState compassState{
+    .has_location= true,
+    .location ={0,0}, /* Current coordinates from GPS */
+    .havePosition=0, /* do we have gps reading or not */
+    .closed=false, /* closed lid (based on hall sensor) */
+    .servoSpeed=-1,
+    .heading=-1, /* direction from north (degrees) */
+    .dial=-1, /* current dial position (degrees) */
+    .batteryVoltage=0,
+    .batteryLevel=0, /* battery level - % */
+    .has_destination=true,
+    .destination={0,0},
+    .direction=-1, /* direction to the destination (degrees) */
+    .distance=-1, /* distance to destination (meters) */
+    .disableMotor=true,
+    .spinMotor=true,
+    .spinSpeed=-1,
+    .calibrate=false, /* are we in calibration state */
+    .calibrateTarget=-1, /* encoder position for calibration */
+    .currentCalibration_count=13
+};
 
 #if BLE_REVISION == 1
 
@@ -385,11 +404,11 @@ float readCompass(float encoderValue){
   }
 
   if(compassConfig.interpolateCalibrations){
-    interpolateCalibration(encoderValue, currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
+    interpolateCalibration(encoderValue, compassState.currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
   }else{
-    closestCalibration(encoderValue, currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
+    closestCalibration(encoderValue, compassState.currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
   }
-  calibrateMagReading (mx, my, mz, currentCalibration);
+  calibrateMagReading (mx, my, mz, compassState.currentCalibration);
 
   IMU.readAcceleration(ax, ay, az); // this stuff works differently on rev1 and rev2 boards. Probably sensor orientation is off
   float roll = atan2(ay, az);

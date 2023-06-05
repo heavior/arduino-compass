@@ -92,6 +92,8 @@
 
         async function parseCompassState(buffer) {
             // Decode the message
+
+            console.log("buffer", buffer.buffer);
             const uintbuffer = (new Uint8Array(buffer.buffer));
 //            console.log("buffer uint array", uintbuffer.join(','));
 //            console.log("buffer uint array base64", uint8ArrayToBase64(uintbuffer));
