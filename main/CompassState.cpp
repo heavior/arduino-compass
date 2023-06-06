@@ -83,8 +83,8 @@ void updateCompassStateBLE(const compass_CompassState& state) {
     // send it over bluetooth
     compassStateCharacteristic.writeValue(buffer, stream.bytes_written);
 
-    Serial.print("compass state len:");
-    Serial.print(stream.bytes_written);
+    //Serial.print("compass state len:");
+    //Serial.print(stream.bytes_written);
   }
 
 }

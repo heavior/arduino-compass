@@ -161,8 +161,8 @@ CompassState compassState{
     .destination={0,0},
     .direction=-1, /* direction to the destination (degrees) */
     .distance=-1, /* distance to destination (meters) */
-    .disableMotor=true,
-    .spinMotor=true,
+    .disableMotor=false,
+    .spinMotor=false,
     .spinSpeed=-1,
     .calibrate=false, /* are we in calibration state */
     .calibrateTarget=-1, /* encoder position for calibration */
@@ -601,10 +601,12 @@ void loop() {
     servoSpeed = SERVO_ZERO_SPEED;
   }
 
-  if(compassState.servoSpeed != servoSpeed){
+  //if(compassState.servoSpeed != servoSpeed){
     compassState.servoSpeed = servoSpeed;
+    Serial.print("servo: ");
+    Serial.print(compassState.servoSpeed);
     servoMotor.write(compassState.servoSpeed);
-  }
+  //}
   
   if(compassState.calibrate && compassState.servoSpeed == SERVO_ZERO_SPEED ){
     // Disable motor once it reaches target compensation value
