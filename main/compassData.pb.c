@@ -15,6 +15,9 @@ PB_BIND(compass_CompassState, compass_CompassState, AUTO)
 PB_BIND(compass_CompassConfig, compass_CompassConfig, AUTO)
 
 
+PB_BIND(compass_CalibrationData, compass_CalibrationData, AUTO)
+
+
 
 #ifndef PB_CONVERT_DOUBLE_FLOAT
 /* On some platforms (such as AVR), double is really float.

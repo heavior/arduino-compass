@@ -53,6 +53,13 @@ typedef struct _compass_CompassConfig {
     bool compensateCompassForTilt; /* flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage */
 } compass_CompassConfig;
 
+typedef struct _compass_CalibrationData {
+    float x;
+    float y;
+    float z;
+    int32_t angle;
+} compass_CalibrationData;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,9 +69,11 @@ extern "C" {
 #define compass_Coordinate_init_default          {0, 0}
 #define compass_CompassState_init_default        {false, compass_Coordinate_init_default, 0, 0, 0, 0, 0, 0, 0, false, compass_Coordinate_init_default, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define compass_CompassConfig_init_default       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define compass_CalibrationData_init_default     {0, 0, 0, 0}
 #define compass_Coordinate_init_zero             {0, 0}
 #define compass_CompassState_init_zero           {false, compass_Coordinate_init_zero, 0, 0, 0, 0, 0, 0, 0, false, compass_Coordinate_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define compass_CompassConfig_init_zero          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define compass_CalibrationData_init_zero        {0, 0, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define compass_Coordinate_latitude_tag          1
@@ -96,6 +105,10 @@ extern "C" {
 #define compass_CompassConfig_debugHall_tag      8
 #define compass_CompassConfig_enableBluetooth_tag 9
 #define compass_CompassConfig_compensateCompassForTilt_tag 10
+#define compass_CalibrationData_x_tag            1
+#define compass_CalibrationData_y_tag            2
+#define compass_CalibrationData_z_tag            3
+#define compass_CalibrationData_angle_tag        4
 
 /* Struct field encoding specification for nanopb */
 #define compass_Coordinate_FIELDLIST(X, a) \
@@ -141,16 +154,27 @@ X(a, STATIC,   SINGULAR, BOOL,     compensateCompassForTilt,  10)
 #define compass_CompassConfig_CALLBACK NULL
 #define compass_CompassConfig_DEFAULT NULL
 
+#define compass_CalibrationData_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, FLOAT,    x,                 1) \
+X(a, STATIC,   SINGULAR, FLOAT,    y,                 2) \
+X(a, STATIC,   SINGULAR, FLOAT,    z,                 3) \
+X(a, STATIC,   SINGULAR, INT32,    angle,             4)
+#define compass_CalibrationData_CALLBACK NULL
+#define compass_CalibrationData_DEFAULT NULL
+
 extern const pb_msgdesc_t compass_Coordinate_msg;
 extern const pb_msgdesc_t compass_CompassState_msg;
 extern const pb_msgdesc_t compass_CompassConfig_msg;
+extern const pb_msgdesc_t compass_CalibrationData_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define compass_Coordinate_fields &compass_Coordinate_msg
 #define compass_CompassState_fields &compass_CompassState_msg
 #define compass_CompassConfig_fields &compass_CompassConfig_msg
+#define compass_CalibrationData_fields &compass_CalibrationData_msg
 
 /* Maximum encoded size of messages (where known) */
+#define compass_CalibrationData_size             26
 #define compass_CompassConfig_size               42
 #define compass_CompassState_size                210
 #define compass_Coordinate_size                  18

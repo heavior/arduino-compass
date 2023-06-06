@@ -84,7 +84,6 @@ const double destination[2] = COORDINATES_NORTH;//{34.180800,-118.300850};      
 
 
 #include "compass_utils.h"
-#include "bluetooth_service.h"
 #include "sparrow_music.h"
 #include "BatteryLevelService.h"
 #include "CompassState.h"
@@ -303,7 +302,6 @@ void setup() {
     BLE.setLocalName(BLUETOOTH_NAME);
     BLE.setDeviceName(BLUETOOTH_NAME);
 
-    setupCalibrationBLEService();
     BatteryLevelService.begin();
     setupCompassStateBLEService();
 
@@ -400,7 +398,7 @@ float readCompass(float encoderValue){
 
   if(compassState.calibrate && compassState.disableMotor){
     // once motor is fixed - start printing data
-    writeCalibrationData(mx,my,mz,compassState.calibrateTarget?(360-compassState.calibrateTarget):0);
+    sendCalibrationData(mx,my,mz,compassState.calibrateTarget?(360-compassState.calibrateTarget):0);
   }
 
   if(compassConfig.interpolateCalibrations){
@@ -505,7 +503,7 @@ void endCalibration(){
 
 void loop() {
   // reading angle from BT service. Negative angle means no calibration needed
-  int calibrationCommand = checkBluetoothCalibrationAngle();
+  int calibrationCommand = checkCalibrationAngle();
   if(calibrationCommand >= 0 && calibrationCommand != compassState.calibrateTarget){
     // new calibration value - starting or restarting calibration
     /* 
@@ -517,9 +515,7 @@ void loop() {
     */
     startCalibration(calibrationCommand);
   }else{
-    if(compassState.calibrate && !checkBluetooth()){
-      // Stopping calibration when BT disconnected - suboptimal
-      // TODO: maybe have a BT command for stopping calibration
+    if(compassState.calibrate && (calibrationCommand == -1)){
       endCalibration();
     }
   }
@@ -601,12 +597,10 @@ void loop() {
     servoSpeed = SERVO_ZERO_SPEED;
   }
 
-  //if(compassState.servoSpeed != servoSpeed){
+  if(compassState.servoSpeed != servoSpeed){
     compassState.servoSpeed = servoSpeed;
-    Serial.print("servo: ");
-    Serial.print(compassState.servoSpeed);
     servoMotor.write(compassState.servoSpeed);
-  //}
+  }
   
   if(compassState.calibrate && compassState.servoSpeed == SERVO_ZERO_SPEED ){
     // Disable motor once it reaches target compensation value

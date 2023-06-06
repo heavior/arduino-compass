@@ -1,322 +1,260 @@
 <!DOCTYPE html>
 <html>
-  <body>
-    <script src="//cdn.jsdelivr.net/npm/protobufjs@7.X.X/dist/protobuf.min.js"></script>
-    
-    <button id="connect">Connect to Arduino</button>
-    <h1>Calibration</h1>
-    <a href="status.html">Status</a><br>
-    <input type="text" id="numberInput" placeholder="Enter angle" value="0">
-    <button id="sendButton" disabled>Start calibration</button>
+  <head>
 
-    <button id="downloadRaw" style="display: none;">Download raw CSV</button>
-    <button id="downloadCalibration" style="display: none;">Download calibration CSV</button>
-    <div id="status">Status: Disconnected</div>
+    <script src="http://cdn.jsdelivr.net/npm/protobufjs@7.X.X/dist/protobuf.min.js"></script>
+    <title>BLE Compass</title>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+        }
+        .data-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 5px 0;
+          border-bottom: 1px solid #ddd;
+        }
+        .data-row:last-child {
+          border-bottom: none;
+        }
+        .data-key {
+          font-weight: bold;
+        }
+      </style>
+
+  </head>
+  <body>
+
+    <h1>Calibration</h1>
+    <input type="text" id="calibrationAngle" placeholder="Enter angle" value="0">
+    <button id="startCalibration">Start calibration</button>
+
+    <button id="downloadRaw">Download raw CSV</button>
     <div id="counter">Row count: 0</div>
     <div id="output">Latest Values: N/A</div>
-    <table id="calibrationTable" style="width:100%; text-align:center;">
-      <tr>
-        <th>Angle</th>
-        <th>Bias X</th>
-        <th>Bias Y</th>
-        <th>Bias Z</th>
-        <th>Scale 1</th>
-        <th>Scale 2</th>
-        <th>Scale 3</th>
-        <th>Scale 4</th>
-        <th>Scale 5</th>
-        <th>Scale 6</th>
-        <th>Scale 7</th>
-        <th>Scale 8</th>
-        <th>Scale 9</th>
-        <th>condition</th>
-      </tr>
-    </table>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.4.0/math.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
     
-    <script>
-      let characteristicCalibrationReader;
-      let characteristicCalibrationStarter;
-      let readings = [];
-      let device;
+    <h1>Status</h1><br>
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <div id="status">Status: Disconnected</div>
 
-      let startingAngle = 0;
-      let stopAngle = 359;
-      let stepAngle = 15; // Every # degrees do calibration
-      let currentRowsCounter = 0;
-      let targetRows = 2000; // reduce to 10-20 to debug
+    <h2>Compass State</h2>
+    <p id="compassState"></p>
 
-      let lsqminnorm = function(A, b) {
-        const AtA = math.multiply(math.transpose(A), A);
-        const Atb = math.multiply(math.transpose(A), b);
-        const x = math.multiply(math.inv(AtA), Atb);
-        return x;
+    <h2>Compass Config</h2>
+    <p id="compassConfig"></p>
+
+  </body>
+
+
+  <script>
+    const compassServiceUUID = "19b10000-e8f2-537e-4f6c-d104768a1214";
+    const compassStateUUID = "19b10001-e8f2-537e-4f6c-d104768a1214";
+    const compassConfigUUID = "55c3d0bf-d6d5-47f5-9222-650e7249b6f6";
+    const calibrationDataUUID = "8a257ab3-65e9-4647-98ab-d07fc9bc78b0";
+    const calibrationControlUUID = "3c9d3165-a6ef-42c6-9956-01827683c3d6";
+
+    let device, server, service;
+    let stateCharacteristic, configCharacteristic, calibrationDataCharacteristic, calibrationControlCharacteristic;
+    let CompassConfig,  CalibrationData, CompassState;
+    let compassData;
+    async function connect() {
+      // Load the .proto file
+      compassData = await protobuf.load("compassData.proto");
+
+      // Obtain a message type
+      CompassConfig = compassData.lookupType("CompassConfig");
+      CompassState = compassData.lookupType("CompassState");
+      CalibrationData = compassData.lookupType("CalibrationData");
+
+      try {
+        console.log('Requesting Bluetooth Device...');
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{ services: [compassServiceUUID] }]
+        });
+
+        console.log('Connecting to GATT Server...');
+        server = await device.gatt.connect();
+
+        console.log('Getting Compass Service...');
+        service = await server.getPrimaryService(compassServiceUUID);
+
+        console.log('Getting Characteristics...');
+        stateCharacteristic = await service.getCharacteristic(compassStateUUID);
+        configCharacteristic = await service.getCharacteristic(compassConfigUUID);
+        calibrationDataCharacteristic = await service.getCharacteristic(calibrationDataUUID);
+        calibrationControlCharacteristic = await service.getCharacteristic(calibrationControlUUID);
+
+        await stateCharacteristic.startNotifications();
+        await configCharacteristic.startNotifications();
+        await calibrationDataCharacteristic.startNotifications();
+
+        stateCharacteristic.addEventListener('characteristicvaluechanged', handleStateCharacteristicValueChanged);
+        configCharacteristic.addEventListener('characteristicvaluechanged', handleConfigCharacteristicValueChanged);
+        calibrationDataCharacteristic.addEventListener('characteristicvaluechanged', handleCalibrationDataValueChanged);
+
+        console.log('Connected!');
+      } catch (error) {
+        console.error('Error: ', error);
       }
-      function conditionNumber(data) {
-        // Select the first three columns of the data
-        const selectedData = data.map(row => row.slice(0, 3));
+    }
 
-        // Calculate SVD
-        const svd = numeric.svd(selectedData);
-
-        // Get the maximum singular value
-        const maxSingularValue = Math.max(...svd.S);
-
-        // Get the minimum singular value
-        const minSingularValue = Math.min(...svd.S);
-
-        // Calculate and return the condition number
-        return maxSingularValue / minSingularValue;
+      async function parseCompassConfig(buffer) {
+          // Decode the message
+          const uintbuffer = (new Uint8Array(buffer.buffer));
+          const message = await CompassConfig.decode(uintbuffer);
+          const value = await CompassConfig.toObject(message);
+          return value;
       }
 
-      let ellipsoidFit = (data) => {
-        const n = data.length;
+      function uint8ArrayToBase64(uint8Array) {
+        let binary = '';
+        const length = uint8Array.length;
 
-        const x = data.map(pt => pt[0]);
-        const y = data.map(pt => pt[1]);
-        const z = data.map(pt => pt[2]);
-        
-        
-        const D = math.transpose([
-            x.map((xi, i) => xi * xi + y[i] * y[i] - 2 * z[i] * z[i]),
-            x.map((xi, i) => xi * xi + z[i] * z[i] - 2 * y[i] * y[i]),
-            x.map((xi, i) => 2 * xi * y[i]),
-            x.map((xi, i) => 2 * xi * z[i]),
-            y.map((yi, i) => 2 * yi * z[i]),
-            x.map(xi => 2 * xi),
-            y.map(yi => 2 * yi),
-            z.map(zi => 2 * zi),
-            Array(n).fill(1)
-        ]);
-
-
-        const d2 = x.map((xi, idx) => xi*xi + y[idx]*y[idx] + z[idx]*z[idx]);
-
-        const u = lsqminnorm(D, d2);
-
-        const a = u[0] + 1;
-        const b = u[1] + 1;
-        const c = 1;
-
-        const v = [u[2], u[3], u[4], -u[5], -u[6], -u[7], u[8]];
-        
-        const A = [[a, v[0], v[3]], [v[0], b, v[4]], [v[3], v[4], c]];
-
-        const center = math.multiply(-1, math.multiply(math.inv(A), v.slice(4, 7)));
-
-        return [A, center];
-      };
-
-      const calibrateMagnetometer = (data) => {
-        const [A, center] = ellipsoidFit(data);
-        const invA = math.inv(A);
-
-        const scale = math.sqrt(invA);
-        const bias = math.multiply(scale, center);
-
-        return [scale, bias];
-      };
-      const SERVICE_UUID = '66c41382-675a-4ec8-af51-82456e148c79';
-
-      const BLUETOOTH_CALIBRATE_CHARACTERISTIC_UUID = "8a257ab3-65e9-4647-98ab-d07fc9bc78b0";
-      const BLUETOOTH_CALIBRATE_CONTROL_CHARACTERISTIC_UUID = "3c9d3165-a6ef-42c6-9956-01827683c3d6";
-
-      let connect = async () => {
-        try {
-          // Request Bluetooth device
-          device = await navigator.bluetooth.requestDevice({
-            filters: [{ services: [SERVICE_UUID] }]
-          });
-
-          // Connect to the device
-          const server = await device.gatt.connect();
-
-          // Get the service
-          const service = await server.getPrimaryService(SERVICE_UUID);
-
-          // Get the characteristic
-          
-          characteristicCalibrationStarter = await service.getCharacteristic(BLUETOOTH_CALIBRATE_CONTROL_CHARACTERISTIC_UUID);
-          
-
-          characteristicCalibrationReader = await service.getCharacteristic(BLUETOOTH_CALIBRATE_CHARACTERISTIC_UUID);
-          characteristicCalibrationReader.startNotifications().then(_ => {
-            characteristicCalibrationReader.addEventListener('characteristicvaluechanged', handleData);});
-
-          sendButton.disabled = false;
-          console.log('Connected to the device.');
-
-          document.querySelector('#status').innerText = "Status: Connected";
-        } catch (error) {
-          console.error('Error:', error);
-
-          document.querySelector('#status').innerText = "Status: Disconnected";
+        for (let i = 0; i < length; i++) {
+          binary += String.fromCharCode(uint8Array[i]);
         }
+
+        return btoa(binary);
       }
-      document.querySelector('#connect').addEventListener('click', async () =>{
-        if(!device){
-          connect();
-        }
-      });
+
+      async function parseCompassState(buffer) {
+          // Decode the message
+          const uintbuffer = (new Uint8Array(buffer.buffer));
+          const message = await CompassState.decode(uintbuffer);
+          const value = await CompassState.toObject(message);
+          return value;
+      }
+
+
+      async function parseCalibrationData(buffer) {
+          // Decode the message
+          const uintbuffer = (new Uint8Array(buffer.buffer));
+          const message = await CalibrationData.decode(uintbuffer);
+          const value = await CalibrationData.toObject(message);
+          return value;
+      }
+
+
+    let startingAngle = 0;
+    let stopAngle = 359;
+    let stepAngle = 15; // Every # degrees do calibration
+    let targetRows = 2000; // reduce to 10-20 to debug
+
+    let currentRowsCounter = 0;
+    let rawCalibrationData = []; 
+
+    async function handleCalibrationDataValueChanged(event){
+
+      let value = event.target.value;
+      let calibrationData = await parseCalibrationData(value);
+      console.log("calibrationData", calibrationData);
+ 
+      if (!('angle' in calibrationData)) { // override for protobuf that doesn't send default values
+        calibrationData.angle = 0;
+      }
+      if (calibrationData.angle > -1) {  
+          rawCalibrationData.push([calibrationData.x||0, calibrationData.y||0, calibrationData.z||0, calibrationData.angle]);
+          currentRowsCounter++;
+
+          document.querySelector('#counter').innerText = "Row count: " + rawCalibrationData.length;
+          document.querySelector('#output').innerText = `Latest Values: X: ${calibrationData.x}, Y: ${calibrationData.y}, Z: ${calibrationData.z}, Angle: ${calibrationData.angle}`;
+      }
       
-      let startCalibration =  async function(angle){
-        if (!isNaN(angle)) {
+      if (calibrationData.angle === -1 || currentRowsCounter >= targetRows) {
+        // Stop notifications code...
 
+        startingAngle += stepAngle;
+        if(startingAngle <= stopAngle){
+          // start again
+          startCalibration(startingAngle);
+          return;
+        }
+
+        startCalibration(-1); //stop calibration
+      }
+    }
+    async function handleConfigCharacteristicValueChanged(event) {
+      let value = event.target.value;
+      let compassConfig = await parseCompassConfig(value);
+      updateDisplay("compassConfig",compassConfig);
+    }
+
+
+    async function handleStateCharacteristicValueChanged(event) {
+      let value = event.target.value;
+      let compassState = await parseCompassState(value);
+      updateDisplay("compassState",compassState);
+    }
+
+    function disconnect() {
+      if (!device) {
+        console.log('no device');
+        return;
+      }
+      console.log('Disconnecting from Bluetooth Device...');
+      if (device.gatt.connected) {
+        device.gatt.disconnect();
+      } else {
+        console.log('Bluetooth Device is already disconnected');
+      }
+    }
+
+    let startCalibration =  async function(angle){
+        if (!isNaN(angle)) {
           currentRowsCounter = 0;
           try {
             // Encode the command with the number
             const command = new Uint16Array([angle]);
 
             // Write the command
-            await characteristicCalibrationStarter.writeValue(command);
+            await calibrationControlCharacteristic.writeValue(command);
 
             console.log('Command sent successfully.');
           } catch (error) {
             console.error('Error:', error);
           }
-          numberInput.value = angle;
+          calibrationAngleInput.value = angle;
         }
       }
 
-      sendButton.addEventListener('click', async () => {
-        startingAngle = parseInt(numberInput.value);
-        await startCalibration(startingAngle);
-      });
+
+    function updateDisplay(htmlid, compassState) {
+      let container = document.getElementById(htmlid);
+      container.innerHTML = '';  // Clear previous data
+      for (let key in compassState) {
+        let row = document.createElement('div');
+        row.className = 'data-row';
+        let keySpan = document.createElement('span');
+        keySpan.className = 'data-key';
+        keySpan.textContent = key + ':';
+        let valueSpan = document.createElement('span');
+        valueSpan.textContent = JSON.stringify(compassState[key]);
+        row.appendChild(keySpan);
+        row.appendChild(valueSpan);
+        container.appendChild(row);
+      }
+    }
+
+    document.querySelector('#downloadRaw').addEventListener('click', function() {
+      let csvContent = "data:text/csv;charset=utf-8," 
+                     + rawCalibrationData.map(e => e.join(",")).join("\n");
       
+      let encodedUri = encodeURI(csvContent);
+      let link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "rawCalibrationData.csv");
+      document.body.appendChild(link); 
+      link.click();
+    });
+    
 
-      let calibrateAll = function(){
-
-        const dataByAngle = {};
-          readings.forEach((reading) => {
-            if (!dataByAngle[reading[3]]) {
-              dataByAngle[reading[3]] = [];
-            }
-            dataByAngle[reading[3]].push(reading.slice(0, 3));
-          });
-
-          // Sorting by angle
-          const sortedAngles = Object.keys(dataByAngle).sort((a, b) => a - b);
-
-          const table = document.getElementById('calibrationTable');
-          sortedAngles.forEach(angle => {
-            const data = dataByAngle[angle];
-            const [scale, bias] = calibrateMagnetometer(data);
-            const condition = conditionNumber(data);
-            console.log(bias);
-            let bx = (math.typeOf(bias[0])=='Complex')?'complex':bias[0].toFixed(6);
-            let by = (math.typeOf(bias[1])=='Complex')?'complex':bias[1].toFixed(6);
-            let bz = (math.typeOf(bias[2])=='Complex')?'complex':bias[2].toFixed(6);
-
-            let row = `<tr><td>${angle}</td><td>${bx}</td><td>${by}</td><td>${bz}</td>`;
-            for(let i=0; i<3; i++) {
-                for(let j=0; j<3; j++) {
-                    let value = (math.typeOf(scale[i][j])=='Complex')?'complex':scale[i][j].toFixed(6);
-                    row += `<td>${value}</td>`;
-                }
-            }
-
-            row += `<td>${condition.toFixed(1)}</td>`;
-            row += '</tr>';
-            table.innerHTML += row;
-          });
-      }
-      function disconnect(){
-          characteristicCalibrationReader.stopNotifications().then(_ => {
-            if (device.gatt.connected) {
-              console.log('Disconnecting from GATT Server...');
-              device.gatt.disconnect();
-              document.querySelector('#status').innerText = "Status: Disconnected";
-            }});
-      }
-      function handleData(event) {
-        console.log("handleData",event);
-
-        let value = event.target.value;
-        let x = value.getFloat32(0, true);
-        let y = value.getFloat32(4, true);
-        let z = value.getFloat32(8, true);
-        let angle = value.getInt32(12, true);
-        
-        if (angle > -1) {  
-            readings.push([x, y, z, angle]);
-            currentRowsCounter++;
-
-            document.querySelector('#counter').innerText = "Row count: " + readings.length;
-            document.querySelector('#output').innerText = `Latest Values: X: ${x}, Y: ${y}, Z: ${z}, Angle: ${angle}`;
-        }
-        
-        if (angle === -1 || currentRowsCounter >= targetRows) {
-          // Stop notifications code...
-
-          startingAngle += stepAngle;
-          if(startingAngle <= stopAngle){
-            startCalibration(startingAngle);
-            return;
-          }
-
-          disconnect();
-          calibrateAll();
-
-          document.querySelector('#downloadCalibration').style.display = 'block';
-        }
-      }
-
-      document.querySelector('#downloadRaw').addEventListener('click', function() {
-        let csvContent = "data:text/csv;charset=utf-8," 
-                       + readings.map(e => e.join(",")).join("\n");
-        
-        let encodedUri = encodeURI(csvContent);
-        let link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "readings.csv");
-        document.body.appendChild(link); 
-        link.click();
-      });
-
-      document.querySelector('#downloadCalibration').addEventListener('click', function() {
-        let csv = [];
-        let rows = document.querySelectorAll("table tr");
-        
-        for (let i = 0; i < rows.length; i++) {
-            let row = [], cols = rows[i].querySelectorAll("td, th");
-            
-            for (let j = 0; j < cols.length; j++) 
-                row.push(cols[j].innerText);
-            
-            csv.push(row.join(","));        
-        }
-
-        downloadCSV(csv.join("\n"), "calibration_data.csv");
-      });
-
-      function downloadCSV(csv, filename) {
-        let csvFile;
-        let downloadLink;
-
-        // CSV file
-        csvFile = new Blob([csv], {type: "text/csv"});
-
-        // Download link
-        downloadLink = document.createElement("a");
-
-        // File name
-        downloadLink.download = filename;
-
-        // Create a link to the file
-        downloadLink.href = window.URL.createObjectURL(csvFile);
-
-        // Hide download link
-        downloadLink.style.display = "none";
-
-        // Add the link to DOM
-        document.body.appendChild(downloadLink);
-
-        // Click download link
-        downloadLink.click();
-      }
-
-    </script>
-  </body>
+    let calibrationAngleInput = document.querySelector('#calibrationAngle');
+    document.querySelector('#startCalibration').addEventListener('click', async () => {
+      startingAngle = parseInt(calibrationAngleInput.value);
+      await startCalibration(startingAngle);
+    });
+      
+      
+  </script>
 </html>

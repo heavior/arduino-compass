@@ -44,3 +44,10 @@ message CompassConfig {
   bool enableBluetooth = 9; 
   bool compensateCompassForTilt = 10; // flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
 }
+
+message CalibrationData {
+  float x=1;
+  float y=2;
+  float z=3;
+  int32 angle=4;
+}

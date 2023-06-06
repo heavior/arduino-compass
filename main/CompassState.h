@@ -17,6 +17,8 @@ void printCompassState(const CompassState& state);
 
 void updateCompassStateBLE(const compass_CompassState& state);
 void sendCompassConfigBLE(const compass_CompassConfig& state);
+void sendCalibrationData(float x, float y, float z, int angle);
+int checkCalibrationAngle();
 
 void setupCompassStateBLEService();
 
