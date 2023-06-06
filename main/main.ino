@@ -119,12 +119,12 @@ Components in use:
 #define SERVO_PIN           D2    // servo - digital port
 #define SERVO_ZERO_SPEED    90    // 90 is a still position in Servo.h to stop servo motor. Full range supported by servo.h is 0 to 180
 #define SERVO_MAX_SPEED     20    // 30 is prev value, max speed where servo stops accelerating. Note: can go beyond that value, or below to slow it down
-#define SERVO_MIN_SPEED     4     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
+#define SERVO_MIN_SPEED     3     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
 #define SERVO_SPIN_FAST_SPEED   (SERVO_ZERO_SPEED + SERVO_MAX_SPEED)
 #define SERVO_SPIN_SLOW_SPEED   (SERVO_ZERO_SPEED - 2*SERVO_MIN_SPEED)
 
 // TODO: auto-compensate min speed if no rotation happens
-#define DIAL_ANGLE_SENSITIVITY 1  // angle difference where motor locks the engine
+#define DIAL_ANGLE_SENSITIVITY 2  // angle difference where motor locks the engine
 Servo servoMotor;  // Servo Object
 
 #define gpsPort             Serial1 // 
@@ -396,11 +396,6 @@ float readCompass(float encoderValue){
   float mx, my, mz, ax, ay, az;
   IMU.readMagneticField(mx, my, mz);
 
-  if(compassState.calibrate && compassState.disableMotor){
-    // once motor is fixed - start printing data
-    sendCalibrationData(mx,my,mz,compassState.calibrateTarget?(360-compassState.calibrateTarget):0);
-  }
-
   if(compassConfig.interpolateCalibrations){
     interpolateCalibration(encoderValue, compassState.currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
   }else{
@@ -453,8 +448,7 @@ void updateDirection(){
     compassState.destination.longitude);
 }
 
-int getServoSpeed(int targetDial){
-  int speed = SERVO_ZERO_SPEED;
+int getCompensationAngle(int targetDial){
   int compensationAngle = targetDial + compassState.dial;
 
   while (compensationAngle > 180){
@@ -464,19 +458,24 @@ int getServoSpeed(int targetDial){
     compensationAngle += 360;
   }
 
+  if(-DIAL_ANGLE_SENSITIVITY < compensationAngle && compensationAngle < DIAL_ANGLE_SENSITIVITY){
+    compensationAngle = 0;
+  }
+  return compensationAngle;
+}
+int getServoSpeed(int compensationAngle){
+  float speed = SERVO_ZERO_SPEED;
+
   // TODO: consider non-linear speed scale
-  speed = map(compensationAngle, -180, 180, SERVO_ZERO_SPEED - SERVO_MAX_SPEED , SERVO_ZERO_SPEED + SERVO_MAX_SPEED); 
+  speed = mapFloat(compensationAngle, -180, 180, SERVO_ZERO_SPEED - SERVO_MAX_SPEED , SERVO_ZERO_SPEED + SERVO_MAX_SPEED); 
+  
   if(speed > SERVO_ZERO_SPEED - SERVO_MIN_SPEED && speed < SERVO_ZERO_SPEED){
     speed = SERVO_ZERO_SPEED - SERVO_MIN_SPEED;
   }
   if(speed < SERVO_ZERO_SPEED + SERVO_MIN_SPEED && speed > SERVO_ZERO_SPEED){
     speed = SERVO_ZERO_SPEED + SERVO_MIN_SPEED;
   }
-
-  if(-DIAL_ANGLE_SENSITIVITY < compensationAngle && compensationAngle < DIAL_ANGLE_SENSITIVITY){
-    speed = SERVO_ZERO_SPEED;
-  }
-  return speed;
+  return (int)speed;
 }
 bool checkClosedLid(){
   int hallValue = analogRead(HALL_SENSOR_PIN);  // Read the value of the hall sensor
@@ -500,6 +499,21 @@ void endCalibration(){
   compassState.disableMotor = false; // re-enable motor
   compassState.calibrateTarget = -1; // set calibration dial back to negative value to ensure restart next time
 }
+
+void sendCalibrationDataIfNeeded(){
+  if(!compassState.calibrate || !compassState.disableMotor){
+    Serial.print("nope ");
+    return;
+  }
+  if (!IMU.magneticFieldAvailable()) {
+    Serial.print("no IMU ");
+    return;
+  }
+  float mx, my, mz;
+  IMU.readMagneticField(mx, my, mz);
+  sendCalibrationData(mx, my, mz, compassState.calibrateTarget?(360-compassState.calibrateTarget):0);
+}
+
 
 void loop() {
   // reading angle from BT service. Negative angle means no calibration needed
@@ -544,7 +558,11 @@ void loop() {
   compassState.dial = readDialPosition();
   
   // 4. Read magnetometer (with compensation for tilt from accelerometer)
-  int currentHeading = readCompass(compassState.dial);
+  int currentHeading = -1;
+  if(!compassState.calibrate){ // do not read compass when calibration
+    currentHeading = readCompass(compassState.dial);
+  }
+  
   if(currentHeading >= 0){
     compassState.heading = currentHeading;
   }
@@ -588,12 +606,31 @@ void loop() {
     targetDial = compassState.calibrateTarget;
   }
  
-  int servoSpeed = getServoSpeed(targetDial);
+  int compensationAngle = getCompensationAngle(targetDial);
+  int servoSpeed = getServoSpeed(compensationAngle);
 
-  if(compassState.spinMotor){
-    servoSpeed = compassState.spinSpeed;
+  if(compassState.closed && !compassState.calibrate){
+    // closed lid - kill all movement except in calibration
+    servoSpeed = SERVO_ZERO_SPEED;
   }
-  if((compassState.closed && !compassState.calibrate) || compassState.disableMotor){
+
+  if(compassState.calibrate){
+    Serial.print("compensate: ");
+    Serial.print(compensationAngle);
+
+    compassState.disableMotor = !compensationAngle; // no need to compensate => disable motor
+    
+    // otherwise the calculated speed will be correct
+    sendCalibrationDataIfNeeded(); // this will try to send calibration data
+  }else{
+    // some special animations here
+    if(compassState.spinMotor){
+      servoSpeed = compassState.spinSpeed;
+    }
+  }
+
+  // finally, reset the speed if motor is expected to be disabled
+  if(compassState.disableMotor){
     servoSpeed = SERVO_ZERO_SPEED;
   }
 
@@ -602,15 +639,10 @@ void loop() {
     servoMotor.write(compassState.servoSpeed);
   }
   
-  if(compassState.calibrate && compassState.servoSpeed == SERVO_ZERO_SPEED ){
-    // Disable motor once it reaches target compensation value
-    // TODO: maybe add dial position check here
-    compassState.disableMotor = true;
-  }
 
   printCompassState (compassState);
   updateCompassStateBLE (compassState);
-  sendCompassConfigBLE (compassConfig);
+  sendCompassConfigBLE (compassConfig); // TODO: change this to pull, not notify
 
   delay(compassConfig.delay);  
 }
