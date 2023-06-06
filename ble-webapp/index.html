@@ -25,23 +25,24 @@
   </head>
   <body>
 
-    <h1>Calibration</h1>
-    <input type="text" id="calibrationAngle" placeholder="Enter angle" value="0">
-    <button id="startCalibration">Start calibration</button>
-
-    <button id="downloadRaw">Download raw CSV</button>
-    <div id="counter">Row count: 0</div>
-    <div id="output">Latest Values: N/A</div>
-    
-    <h1>Status</h1><br>
+    <h1>Connection</h1>
     <button onclick="connect()">Connect</button>
     <button onclick="disconnect()">Disconnect</button>
     <div id="status">Status: Disconnected</div>
 
-    <h2>Compass State</h2>
+    <h1>Calibration</h1>
+    <input type="text" id="calibrationAngle" placeholder="Enter angle" value="0">
+    <button id="startCalibration">Start calibration</button>
+    <button id="stopCalibration">Stop calibration</button>
+
+    <button id="downloadRaw">Download raw CSV</button>
+    <div id="counter">Row count: 0</div>
+    <div id="output">Latest Values: N/A</div>
+
+    <h1>Compass State</h1>
     <p id="compassState"></p>
 
-    <h2>Compass Config</h2>
+    <h1>Compass Config</h1>
     <p id="compassConfig"></p>
 
   </body>
@@ -210,11 +211,13 @@
             // Write the command
             await calibrationControlCharacteristic.writeValue(command);
 
-            console.log('Command sent successfully.');
+            console.log('Calibration command sent successfully, angle:', angle);
           } catch (error) {
             console.error('Error:', error);
           }
-          calibrationAngleInput.value = angle;
+          if(angle>=0){
+            calibrationAngleInput.value = angle;
+          }
         }
       }
 
@@ -254,6 +257,11 @@
       startingAngle = parseInt(calibrationAngleInput.value);
       await startCalibration(startingAngle);
     });
+    document.querySelector('#stopCalibration').addEventListener('click', async () => {
+      await startCalibration(-1);
+    });
+
+    
       
       
   </script>
