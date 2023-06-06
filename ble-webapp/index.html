@@ -24,29 +24,33 @@
 
   </head>
   <body>
+    <div id="disconnected">
+      <h1>Connection</h1>
+      <button onclick="connect()">Connect</button>
+    </div>
 
-    <h1>Connection</h1>
-    <button onclick="connect()">Connect</button>
-    <button onclick="disconnect()">Disconnect</button>
-    <div id="status">Status: Disconnected</div>
+    <div id="connected" style="display: none;">
+      <h1>Connection</h1>
+      <button onclick="connect()">Connect</button>
+      <button onclick="disconnect()">Disconnect</button>
+      <div id="status">Status: Disconnected</div>
 
-    <h1>Calibration</h1>
-    <input type="text" id="calibrationAngle" placeholder="Enter angle" value="0">
-    <button id="startCalibration">Start calibration</button>
-    <button id="stopCalibration">Stop calibration</button>
+      <h1>Calibration</h1>
+      <input type="text" id="calibrationAngle" placeholder="Enter angle" value="0">
+      <button id="startCalibration">Start calibration</button>
+      <button id="stopCalibration">Stop calibration</button>
 
-    <button id="downloadRaw">Download raw CSV</button>
-    <div id="counter">Row count: 0</div>
-    <div id="output">Latest Values: N/A</div>
+      <button id="downloadRaw">Download raw CSV</button>
+      <div id="counter">Row count: 0</div>
+      <div id="output">Latest Values: N/A</div>
 
-    <h1>Compass State</h1>
-    <p id="compassState"></p>
+      <h1>Compass State</h1>
+      <p id="compassState"></p>
 
-    <h1>Compass Config</h1>
-    <p id="compassConfig"></p>
-
+      <h1>Compass Config</h1>
+      <p id="compassConfig"></p>
+    </div>
   </body>
-
 
   <script>
     const compassServiceUUID = "19b10000-e8f2-537e-4f6c-d104768a1214";
@@ -93,6 +97,9 @@
         stateCharacteristic.addEventListener('characteristicvaluechanged', handleStateCharacteristicValueChanged);
         configCharacteristic.addEventListener('characteristicvaluechanged', handleConfigCharacteristicValueChanged);
         calibrationDataCharacteristic.addEventListener('characteristicvaluechanged', handleCalibrationDataValueChanged);
+
+        document.querySelector('#connected').style.display = "block";
+        document.querySelector('#disconnected').style.display = "none";
 
         console.log('Connected!');
       } catch (error) {
@@ -188,17 +195,20 @@
       updateDisplay("compassState",compassState);
     }
 
-    function disconnect() {
+    async function disconnect() {
       if (!device) {
         console.log('no device');
         return;
       }
       console.log('Disconnecting from Bluetooth Device...');
       if (device.gatt.connected) {
-        device.gatt.disconnect();
+        await device.gatt.disconnect();
       } else {
         console.log('Bluetooth Device is already disconnected');
       }
+
+      document.querySelector('#connected').style.display = "none";
+      document.querySelector('#disconnected').style.display = "block";
     }
 
     let startCalibration =  async function(angle){
