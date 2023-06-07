@@ -9,16 +9,16 @@
 PB_BIND(compass_Coordinate, compass_Coordinate, AUTO)
 
 
-PB_BIND(compass_CompassState, compass_CompassState, AUTO)
+PB_BIND(compass_MapPoint, compass_MapPoint, 2)
+
+
+PB_BIND(compass_CompassState, compass_CompassState, 2)
 
 
 PB_BIND(compass_CompassConfig, compass_CompassConfig, AUTO)
 
 
 PB_BIND(compass_CalibrationData, compass_CalibrationData, AUTO)
-
-
-PB_BIND(compass_MapPoint, compass_MapPoint, 2)
 
 
 

@@ -60,8 +60,9 @@ CompassConfig compassConfig;*/
 #define COORDINATES_CURROS {34.183580992498726, -118.29623564524786} // Some point in Miller elementary
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
-const double destination[2] = COORDINATES_NORTH;//{34.180800,-118.300850};        // lattitude, longtitude
 
+// destination: id, name, radius (meters), true, {lat,lon}
+compass_MapPoint destination = {0, "The Man", 100, true, COORDINATES_MAN };
 
 /* END OF DEBUG CONFIGURATION */
 
@@ -289,8 +290,7 @@ void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
   Serial.println("Started");
 
-  compassState.destination.latitude = destination[0];
-  compassState.destination.longitude = destination[1];
+  compassState.destination = destination;
 
   if(compassConfig.enableBluetooth){
 
@@ -439,13 +439,13 @@ void updateDirection(){
   compassState.distance = gps.distanceBetween(
     compassState.location.latitude,
     compassState.location.longitude,
-    compassState.destination.latitude,
-    compassState.destination.longitude);
+    compassState.destination.coordinates.latitude,
+    compassState.destination.coordinates.longitude);
   compassState.direction = gps.courseTo(
     compassState.location.latitude,
     compassState.location.longitude,
-    compassState.destination.latitude,
-    compassState.destination.longitude);
+    compassState.destination.coordinates.latitude,
+    compassState.destination.coordinates.longitude);
 }
 
 int getCompensationAngle(int targetDial){
