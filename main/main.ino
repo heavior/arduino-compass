@@ -580,7 +580,7 @@ void loop() {
   
   updateDirection();
   
-  if(compassState.distance < MIN_DISTANCE){
+  if(compassState.distance < compassState.destination.radius + MIN_DISTANCE){
     if(!compassState.spinMotor){ // playing theme once
       playTheme();
     }
