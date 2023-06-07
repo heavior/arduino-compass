@@ -55,5 +55,6 @@ message CalibrationData {
 message MapPoint{
   uint32 id = 1;
   string name = 2;
-  Coordinate coordinates = 3;
+  uint32 radius = 3;
+  Coordinate coordinates = 4;
 }
