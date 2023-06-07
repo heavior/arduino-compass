@@ -200,7 +200,8 @@ const float calibrationMatrix[COMPASS_CALIBRATIONS][13] = {{
   [2] offset Y
   [3] offset Z
   [4] - [13] - soft iron matrix row by row
-*/#define COMPASS_CALIBRATIONS 24
+*/
+#define COMPASS_CALIBRATIONS 24
 const float calibrationMatrix[COMPASS_CALIBRATIONS][13] = {
   {0, 113.68027072947622, 14.064053135526231, -44.39007398141654, 1.0027124831401617, -0.02268537881007984, 0.0024771971492191544, -0.022685378810079825, 0.9761447582364063, 0.00496493698119237, 0.002477197149219158, 0.004964936981192359, 1.0222363782316373},
   {15, 105.4894449414744, 28.750851534515938, -44.778087997022496, 1.0050664011679724, -0.016027403127613856, -0.013442661589566175, -0.016027403127613825, 0.9940222455470866, -0.019658251580080017, -0.013442661589566177, -0.019658251580080065, 1.0017771470461858},
@@ -608,10 +609,6 @@ void loop() {
   int compensationAngle = getCompensationAngle(targetDial);
   int servoSpeed = getServoSpeed(compensationAngle);
 
-  if(compassState.closed && !compassState.calibrate){
-    // closed lid - kill all movement except in calibration
-    servoSpeed = SERVO_ZERO_SPEED;
-  }
 
   if(compassState.calibrate){
     Serial.print("compensate: ");
@@ -625,6 +622,11 @@ void loop() {
     // some special animations here
     if(compassState.spinMotor){
       servoSpeed = compassState.spinSpeed;
+    }
+
+    if(compassState.closed && !compassState.calibrate){
+      // closed lid - kill all movement except in calibration
+      servoSpeed = SERVO_ZERO_SPEED;
     }
   }
 
