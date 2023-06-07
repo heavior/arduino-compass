@@ -61,12 +61,14 @@ CompassConfig compassConfig;*/
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
 
-#define DESTINATIONS_COUNT 23
 /*compass_MapPoint destinations[DESTINATIONS_COUNT] = {
   {0, "Home", 20, true, COORDINATES_MILLER_PARK, true }, // fixed destination, visited = true
   {1, "The Man", 100, true, COORDINATES_MAN, false }
 };*/
-compass_MapPoint destinations[DESTINATIONS_COUNT] = {
+
+
+#define DESTINATIONS_COUNT 23 // youtopia destinations
+compass_MapPoint destinations[DESTINATIONS_COUNT] = 
 {
   { 0, "Home", 10, true, {32.651426442942004, -116.18317194896657}, true }, // fixed destination, visited = true
   { 1, "1) Body Dysturbia", 5, true, { 32.6520232, -116.185332 }, false },
