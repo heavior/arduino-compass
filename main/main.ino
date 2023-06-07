@@ -61,11 +61,38 @@ CompassConfig compassConfig;*/
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
 
-#define DESTINATIONS_COUNT 2
-compass_MapPoint destinations[DESTINATIONS_COUNT] = {
+#define DESTINATIONS_COUNT 23
+/*compass_MapPoint destinations[DESTINATIONS_COUNT] = {
   {0, "Home", 20, true, COORDINATES_MILLER_PARK, true }, // fixed destination, visited = true
   {1, "The Man", 100, true, COORDINATES_MAN, false }
+};*/
+compass_MapPoint destinations[DESTINATIONS_COUNT] = {
+{
+  { 0, "Home", 10, true, {32.651426442942004, -116.18317194896657}, true }, // fixed destination, visited = true
+  { 1, "1) Body Dysturbia", 5, true, { 32.6520232, -116.185332 }, false },
+  { 2, "2) Danger Beans Coffee", 5, true, { 32.652025, -116.1849642 }, false },
+  { 3, "3) Dichroic Tesseract", 5, true, { 32.6521514, -116.1842883 }, false },
+  { 4, "4) Nandily Tea Lounge", 5, true, { 32.6521695, -116.183945 }, false },
+  { 5, "5) Baby Seal Club Bar", 5, true, { 32.6525797, -116.183826 }, false },
+  { 6, "6) Ring Of Fire", 5, true, { 32.6529868, -116.183885 }, false },
+  { 7, "7) The Meadow of Lambient Gladdering", 5, true, { 32.6532332, -116.1842593 }, false },
+  { 8, "8) Art In Motion", 5, true, { 32.6533901, -116.184097 }, false },
+  { 9, "9) Phoenix Syndrome", 5, true, { 32.6518185, -116.1837364 }, false },
+  { 10, "10) Gathering of Unlimited Devotion", 5, true, { 32.6520127, -116.1834896 }, false },
+  { 11, "11) Poultry In Motion", 5, true, { 32.6513217, -116.1824865 }, false },
+  { 12, "12) Those Lights Out There", 5, true, { 32.6523605, -116.1820037 }, false },
+  { 13, "13) Deep Sea Kingdom", 5, true, { 32.6517553, -116.1814673 }, false },
+  { 14, "14) Satanic Drug Confessional", 5, true, { 32.6517959, -116.1810273 }, false },
+  { 15, "15) Little Free Satanic Drug Thing Library", 5, true, { 32.651683, -116.1806948 }, false },
+  { 16, "16) YOU", 5, true, { 32.6533813, -116.1820734 }, false },
+  { 17, "17) Return of Toxic Unicorn", 5, true, { 32.6531735, -116.1819661 }, false },
+  { 18, "18) Mr Tenterbator The Galactic Jelly Fish", 5, true, { 32.6536703, -116.1816335 }, false },
+  { 19, "19) Jackalope Chaos Entity", 5, true, { 32.6535077, -116.1810113 }, false },
+  { 20, "20) Barrel Lounge", 5, true, { 32.6530425, -116.1810488 }, false },
+  { 21, "21) Who gives a Cluck", 5, true, { 32.6524192, -116.179697 }, false },
+  { 22, "Temple", 5, true, { 32.6533506, -116.1841735 }, false }
 };
+
 // destination: id, name, radius (meters), true, {lat,lon}, visited
 compass_MapPoint* destination = &destinations[1];
 
