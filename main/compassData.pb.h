@@ -60,6 +60,13 @@ typedef struct _compass_CalibrationData {
     int32_t angle;
 } compass_CalibrationData;
 
+typedef struct _compass_MapPoint {
+    uint32_t id;
+    char name[256];
+    bool has_coordinates;
+    compass_Coordinate coordinates;
+} compass_MapPoint;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,10 +77,12 @@ extern "C" {
 #define compass_CompassState_init_default        {false, compass_Coordinate_init_default, 0, 0, 0, 0, 0, 0, 0, false, compass_Coordinate_init_default, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define compass_CompassConfig_init_default       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define compass_CalibrationData_init_default     {0, 0, 0, 0}
+#define compass_MapPoint_init_default            {0, "", false, compass_Coordinate_init_default}
 #define compass_Coordinate_init_zero             {0, 0}
 #define compass_CompassState_init_zero           {false, compass_Coordinate_init_zero, 0, 0, 0, 0, 0, 0, 0, false, compass_Coordinate_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define compass_CompassConfig_init_zero          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define compass_CalibrationData_init_zero        {0, 0, 0, 0}
+#define compass_MapPoint_init_zero               {0, "", false, compass_Coordinate_init_zero}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define compass_Coordinate_latitude_tag          1
@@ -109,6 +118,9 @@ extern "C" {
 #define compass_CalibrationData_y_tag            2
 #define compass_CalibrationData_z_tag            3
 #define compass_CalibrationData_angle_tag        4
+#define compass_MapPoint_id_tag                  1
+#define compass_MapPoint_name_tag                2
+#define compass_MapPoint_coordinates_tag         3
 
 /* Struct field encoding specification for nanopb */
 #define compass_Coordinate_FIELDLIST(X, a) \
@@ -162,22 +174,33 @@ X(a, STATIC,   SINGULAR, INT32,    angle,             4)
 #define compass_CalibrationData_CALLBACK NULL
 #define compass_CalibrationData_DEFAULT NULL
 
+#define compass_MapPoint_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   id,                1) \
+X(a, STATIC,   SINGULAR, STRING,   name,              2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  coordinates,       3)
+#define compass_MapPoint_CALLBACK NULL
+#define compass_MapPoint_DEFAULT NULL
+#define compass_MapPoint_coordinates_MSGTYPE compass_Coordinate
+
 extern const pb_msgdesc_t compass_Coordinate_msg;
 extern const pb_msgdesc_t compass_CompassState_msg;
 extern const pb_msgdesc_t compass_CompassConfig_msg;
 extern const pb_msgdesc_t compass_CalibrationData_msg;
+extern const pb_msgdesc_t compass_MapPoint_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define compass_Coordinate_fields &compass_Coordinate_msg
 #define compass_CompassState_fields &compass_CompassState_msg
 #define compass_CompassConfig_fields &compass_CompassConfig_msg
 #define compass_CalibrationData_fields &compass_CalibrationData_msg
+#define compass_MapPoint_fields &compass_MapPoint_msg
 
 /* Maximum encoded size of messages (where known) */
 #define compass_CalibrationData_size             26
 #define compass_CompassConfig_size               42
 #define compass_CompassState_size                210
 #define compass_Coordinate_size                  18
+#define compass_MapPoint_size                    284
 
 #ifdef __cplusplus
 } /* extern "C" */
