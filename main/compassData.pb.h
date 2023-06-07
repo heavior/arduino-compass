@@ -21,6 +21,7 @@ typedef struct _compass_MapPoint {
     uint32_t radius;
     bool has_coordinates;
     compass_Coordinate coordinates;
+    bool visited;
 } compass_MapPoint;
 
 typedef struct _compass_CompassState {
@@ -75,12 +76,12 @@ extern "C" {
 
 /* Initializer values for message structs */
 #define compass_Coordinate_init_default          {0, 0}
-#define compass_MapPoint_init_default            {0, "", 0, false, compass_Coordinate_init_default}
+#define compass_MapPoint_init_default            {0, "", 0, false, compass_Coordinate_init_default, 0}
 #define compass_CompassState_init_default        {false, compass_Coordinate_init_default, 0, 0, 0, 0, 0, 0, 0, false, compass_MapPoint_init_default, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define compass_CompassConfig_init_default       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define compass_CalibrationData_init_default     {0, 0, 0, 0}
 #define compass_Coordinate_init_zero             {0, 0}
-#define compass_MapPoint_init_zero               {0, "", 0, false, compass_Coordinate_init_zero}
+#define compass_MapPoint_init_zero               {0, "", 0, false, compass_Coordinate_init_zero, 0}
 #define compass_CompassState_init_zero           {false, compass_Coordinate_init_zero, 0, 0, 0, 0, 0, 0, 0, false, compass_MapPoint_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define compass_CompassConfig_init_zero          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define compass_CalibrationData_init_zero        {0, 0, 0, 0}
@@ -92,6 +93,7 @@ extern "C" {
 #define compass_MapPoint_name_tag                2
 #define compass_MapPoint_radius_tag              3
 #define compass_MapPoint_coordinates_tag         4
+#define compass_MapPoint_visited_tag             5
 #define compass_CompassState_location_tag        1
 #define compass_CompassState_havePosition_tag    2
 #define compass_CompassState_closed_tag          3
@@ -135,7 +137,8 @@ X(a, STATIC,   SINGULAR, DOUBLE,   longitude,         2)
 X(a, STATIC,   SINGULAR, UINT32,   id,                1) \
 X(a, STATIC,   SINGULAR, STRING,   name,              2) \
 X(a, STATIC,   SINGULAR, UINT32,   radius,            3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  coordinates,       4)
+X(a, STATIC,   OPTIONAL, MESSAGE,  coordinates,       4) \
+X(a, STATIC,   SINGULAR, BOOL,     visited,           5)
 #define compass_MapPoint_CALLBACK NULL
 #define compass_MapPoint_DEFAULT NULL
 #define compass_MapPoint_coordinates_MSGTYPE compass_Coordinate
@@ -201,9 +204,9 @@ extern const pb_msgdesc_t compass_CalibrationData_msg;
 /* Maximum encoded size of messages (where known) */
 #define compass_CalibrationData_size             26
 #define compass_CompassConfig_size               42
-#define compass_CompassState_size                483
+#define compass_CompassState_size                485
 #define compass_Coordinate_size                  18
-#define compass_MapPoint_size                    290
+#define compass_MapPoint_size                    292
 
 #ifdef __cplusplus
 } /* extern "C" */

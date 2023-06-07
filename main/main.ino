@@ -61,8 +61,13 @@ CompassConfig compassConfig;*/
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
 
-// destination: id, name, radius (meters), true, {lat,lon}
-compass_MapPoint destination = {0, "The Man", 100, true, COORDINATES_MAN };
+#define DESTINATIONS_COUNT 2
+compass_MapPoint destinations[DESTINATIONS_COUNT] = {
+  {0, "Home", 20, true, COORDINATES_MILLER_PARK, true }, // fixed destination, visited = true
+  {1, "The Man", 100, true, COORDINATES_MAN, false }
+};
+// destination: id, name, radius (meters), true, {lat,lon}, visited
+compass_MapPoint* destination = &destinations[1];
 
 /* END OF DEBUG CONFIGURATION */
 
@@ -290,8 +295,8 @@ void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
   Serial.println("Started");
 
-  compassState.destination = destination;
-
+  setNextDestination();
+ 
   if(compassConfig.enableBluetooth){
 
     if (!BLE.begin()) {
@@ -435,12 +440,15 @@ float readCompass(float encoderValue){
   return calibrated_heading;
 }
 
-void updateDirection(){
-  compassState.distance = gps.distanceBetween(
+float getDistanceToDestination(compass_MapPoint destination){
+  return gps.distanceBetween(
     compassState.location.latitude,
     compassState.location.longitude,
-    compassState.destination.coordinates.latitude,
-    compassState.destination.coordinates.longitude);
+    destination.coordinates.latitude,
+    destination.coordinates.longitude);
+}
+void updateDirection(){
+  compassState.distance = getDistanceToDestination(compassState.destination);
   compassState.direction = gps.courseTo(
     compassState.location.latitude,
     compassState.location.longitude,
@@ -514,6 +522,50 @@ void sendCalibrationDataIfNeeded(){
   sendCalibrationData(mx, my, mz, compassState.calibrateTarget?(360-compassState.calibrateTarget):0);
 }
 
+void setVisitedDestination(uint32_t id){
+  for (int i=0;i< DESTINATIONS_COUNT;i++){
+    if(destinations[i].id == id){
+      destinations[i].visited = true;
+    }  
+  }
+}
+
+void resetDestinations(){
+  for (int i=1;i< DESTINATIONS_COUNT;i++){
+      destinations[i].visited = false;
+  }
+}
+compass_MapPoint* findClosestUnvistedDestination(){
+  float minDistance = FLT_MAX;
+  compass_MapPoint *closestPoint = NULL;
+  for (int i=0;i< DESTINATIONS_COUNT;i++){
+    if(destinations[i].visited){
+      continue;
+    }  
+    float distance = getDistanceToDestination(destinations[i]);
+    if(distance < minDistance){
+      minDistance = distance;
+      closestPoint = &(destinations[i]);
+    }
+  }
+  return closestPoint;
+}
+void setNextDestination(){
+  uint32_t oldId = compassState.destination.id;
+
+  // Logic: pick next closest not visited destination
+  compass_MapPoint *closestPoint = findClosestUnvistedDestination();
+
+  if(!closestPoint){
+    closestPoint = &(destinations[0]); // default destination is home
+  }
+  compassState.destination = *closestPoint;
+
+  // no destinations left - go home
+
+
+  //
+}
 
 void loop() {
   // reading angle from BT service. Negative angle means no calibration needed
@@ -538,7 +590,14 @@ void loop() {
   if(compassConfig.ignoreHallSensor){
     compassState.closed = false;
   }else{
+    bool oldClosedValue = compassState.closed;
     checkClosedLid();
+    if (oldClosedValue != compassState.closed){
+      // EVENT: lid just closed or opened
+      if(!compassState.closed){
+        setNextDestination(); // Finding closest destination to visit
+      }
+    }
   }
 
 
@@ -581,11 +640,14 @@ void loop() {
   updateDirection();
   
   if(compassState.distance < compassState.destination.radius + MIN_DISTANCE){
+    setVisitedDestination(compassState.destination.id);
     if(!compassState.spinMotor){ // playing theme once
       playTheme();
     }
     compassState.spinMotor = true;
     compassState.spinSpeed = SERVO_SPIN_FAST_SPEED;
+    // TODO: introduce some timer before setting next destination
+    setNextDestination();
   } else if(!compassState.havePosition){
     compassState.spinMotor = true;
     compassState.spinSpeed = SERVO_SPIN_SLOW_SPEED;

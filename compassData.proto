@@ -12,6 +12,7 @@ message MapPoint{
   string name = 2;
   uint32 radius = 3;
   Coordinate coordinates = 4;
+  bool visited = 5;
 }
 
 
