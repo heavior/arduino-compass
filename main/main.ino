@@ -60,15 +60,16 @@ CompassConfig compassConfig;*/
 #define COORDINATES_CURROS {34.183580992498726, -118.29623564524786} // Some point in Miller elementary
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
-
-/*compass_MapPoint destinations[DESTINATIONS_COUNT] = {
-  {0, "Home", 20, true, COORDINATES_MILLER_PARK, true }, // fixed destination, visited = true
-  {1, "The Man", 100, true, COORDINATES_MAN, false }
-};*/
-
-
+/*
+#define DESTINATIONS_COUNT 1
+compass_MapPoint destinations[DESTINATIONS_COUNT] = {
+//  {0, "Home", 20, true, COORDINATES_MILLER_PARK, true }, // fixed destination, visited = true
+  {0, "The Man", 100, true, COORDINATES_MAN, false }
+};
+*/
+/*
 #define DESTINATIONS_COUNT 23 // youtopia destinations
-compass_MapPoint destinations[DESTINATIONS_COUNT] = 
+compass_MapPoint destinations[] = 
 {
   { 0, "Home", 10, true, {32.651426442942004, -116.18317194896657}, true }, // fixed destination, visited = true
   { 1, "1) Body Dysturbia", 5, true, { 32.6520232, -116.185332 }, false },
@@ -94,6 +95,17 @@ compass_MapPoint destinations[DESTINATIONS_COUNT] =
   { 21, "21) Who gives a Cluck", 5, true, { 32.6524192, -116.179697 }, false },
   { 22, "Temple", 5, true, { 32.6533506, -116.1841735 }, false }
 };
+*/
+
+
+#define DESTINATIONS_COUNT 4
+compass_MapPoint destinations[] = {
+    { 0, "0) home", 0, true, { 34.1807809, -118.3008975 }, false },
+    { 1, "1) colgin Ct", 0, true, { 34.1814535, -118.3002961 }, false },
+    { 2, "2) Red Top Market & Kitchen", 0, true, { 34.1798233, -118.3010742 }, false },
+    { 3, "3) Burbank Liquor & Food Market", 0, true, { 34.1804827, -118.3020486 }, false },
+};
+
 
 // destination: id, name, radius (meters), true, {lat,lon}, visited
 compass_MapPoint* destination = &destinations[1];
