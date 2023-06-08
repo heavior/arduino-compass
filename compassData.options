@@ -1,1 +1,3 @@
 compass.CompassState.currentCalibration max_count:13
+
+compass.MapPoint.name max_length:255

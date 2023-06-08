@@ -60,8 +60,55 @@ CompassConfig compassConfig;*/
 #define COORDINATES_CURROS {34.183580992498726, -118.29623564524786} // Some point in Miller elementary
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
-const double destination[2] = COORDINATES_NORTH;//{34.180800,-118.300850};        // lattitude, longtitude
+/*
+#define DESTINATIONS_COUNT 1
+compass_MapPoint destinations[DESTINATIONS_COUNT] = {
+//  {0, "Home", 20, true, COORDINATES_MILLER_PARK, true }, // fixed destination, visited = true
+  {0, "The Man", 100, true, COORDINATES_MAN, false }
+};
+*/
+/*
+#define DESTINATIONS_COUNT 23 // youtopia destinations
+compass_MapPoint destinations[] = 
+{
+  { 0, "Home", 10, true, {32.651426442942004, -116.18317194896657}, true }, // fixed destination, visited = true
+  { 1, "1) Body Dysturbia", 5, true, { 32.6520232, -116.185332 }, false },
+  { 2, "2) Danger Beans Coffee", 5, true, { 32.652025, -116.1849642 }, false },
+  { 3, "3) Dichroic Tesseract", 5, true, { 32.6521514, -116.1842883 }, false },
+  { 4, "4) Nandily Tea Lounge", 5, true, { 32.6521695, -116.183945 }, false },
+  { 5, "5) Baby Seal Club Bar", 5, true, { 32.6525797, -116.183826 }, false },
+  { 6, "6) Ring Of Fire", 5, true, { 32.6529868, -116.183885 }, false },
+  { 7, "7) The Meadow of Lambient Gladdering", 5, true, { 32.6532332, -116.1842593 }, false },
+  { 8, "8) Art In Motion", 5, true, { 32.6533901, -116.184097 }, false },
+  { 9, "9) Phoenix Syndrome", 5, true, { 32.6518185, -116.1837364 }, false },
+  { 10, "10) Gathering of Unlimited Devotion", 5, true, { 32.6520127, -116.1834896 }, false },
+  { 11, "11) Poultry In Motion", 5, true, { 32.6513217, -116.1824865 }, false },
+  { 12, "12) Those Lights Out There", 5, true, { 32.6523605, -116.1820037 }, false },
+  { 13, "13) Deep Sea Kingdom", 5, true, { 32.6517553, -116.1814673 }, false },
+  { 14, "14) Satanic Drug Confessional", 5, true, { 32.6517959, -116.1810273 }, false },
+  { 15, "15) Little Free Satanic Drug Thing Library", 5, true, { 32.651683, -116.1806948 }, false },
+  { 16, "16) YOU", 5, true, { 32.6533813, -116.1820734 }, false },
+  { 17, "17) Return of Toxic Unicorn", 5, true, { 32.6531735, -116.1819661 }, false },
+  { 18, "18) Mr Tenterbator The Galactic Jelly Fish", 5, true, { 32.6536703, -116.1816335 }, false },
+  { 19, "19) Jackalope Chaos Entity", 5, true, { 32.6535077, -116.1810113 }, false },
+  { 20, "20) Barrel Lounge", 5, true, { 32.6530425, -116.1810488 }, false },
+  { 21, "21) Who gives a Cluck", 5, true, { 32.6524192, -116.179697 }, false },
+  { 22, "Temple", 5, true, { 32.6533506, -116.1841735 }, false }
+};
+*/
 
+
+#define DESTINATIONS_COUNT 4
+compass_MapPoint destinations[] = {
+    { 0, "0) home", 0, true, { 34.1807809, -118.3008975 }, false },
+    { 1, "1) colgin Ct", 0, true, { 34.1814535, -118.3002961 }, false },
+    { 2, "2) Red Top Market & Kitchen", 0, true, { 34.1798233, -118.3010742 }, false },
+    { 3, "3) Burbank Liquor & Food Market", 0, true, { 34.1804827, -118.3020486 }, false },
+};
+
+
+// destination: id, name, radius (meters), true, {lat,lon}, visited
+compass_MapPoint* destination = &destinations[1];
 
 /* END OF DEBUG CONFIGURATION */
 
@@ -289,9 +336,8 @@ void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
   Serial.println("Started");
 
-  compassState.destination.latitude = destination[0];
-  compassState.destination.longitude = destination[1];
-
+  setNextDestination();
+ 
   if(compassConfig.enableBluetooth){
 
     if (!BLE.begin()) {
@@ -435,17 +481,20 @@ float readCompass(float encoderValue){
   return calibrated_heading;
 }
 
-void updateDirection(){
-  compassState.distance = gps.distanceBetween(
+float getDistanceToDestination(compass_MapPoint destination){
+  return gps.distanceBetween(
     compassState.location.latitude,
     compassState.location.longitude,
-    compassState.destination.latitude,
-    compassState.destination.longitude);
+    destination.coordinates.latitude,
+    destination.coordinates.longitude);
+}
+void updateDirection(){
+  compassState.distance = getDistanceToDestination(compassState.destination);
   compassState.direction = gps.courseTo(
     compassState.location.latitude,
     compassState.location.longitude,
-    compassState.destination.latitude,
-    compassState.destination.longitude);
+    compassState.destination.coordinates.latitude,
+    compassState.destination.coordinates.longitude);
 }
 
 int getCompensationAngle(int targetDial){
@@ -514,6 +563,50 @@ void sendCalibrationDataIfNeeded(){
   sendCalibrationData(mx, my, mz, compassState.calibrateTarget?(360-compassState.calibrateTarget):0);
 }
 
+void setVisitedDestination(uint32_t id){
+  for (int i=0;i< DESTINATIONS_COUNT;i++){
+    if(destinations[i].id == id){
+      destinations[i].visited = true;
+    }  
+  }
+}
+
+void resetDestinations(){
+  for (int i=1;i< DESTINATIONS_COUNT;i++){
+      destinations[i].visited = false;
+  }
+}
+compass_MapPoint* findClosestUnvistedDestination(){
+  float minDistance = FLT_MAX;
+  compass_MapPoint *closestPoint = NULL;
+  for (int i=0;i< DESTINATIONS_COUNT;i++){
+    if(destinations[i].visited){
+      continue;
+    }  
+    float distance = getDistanceToDestination(destinations[i]);
+    if(distance < minDistance){
+      minDistance = distance;
+      closestPoint = &(destinations[i]);
+    }
+  }
+  return closestPoint;
+}
+void setNextDestination(){
+  uint32_t oldId = compassState.destination.id;
+
+  // Logic: pick next closest not visited destination
+  compass_MapPoint *closestPoint = findClosestUnvistedDestination();
+
+  if(!closestPoint){
+    closestPoint = &(destinations[0]); // default destination is home
+  }
+  compassState.destination = *closestPoint;
+
+  // no destinations left - go home
+
+
+  //
+}
 
 void loop() {
   // reading angle from BT service. Negative angle means no calibration needed
@@ -538,7 +631,14 @@ void loop() {
   if(compassConfig.ignoreHallSensor){
     compassState.closed = false;
   }else{
+    bool oldClosedValue = compassState.closed;
     checkClosedLid();
+    if (oldClosedValue != compassState.closed){
+      // EVENT: lid just closed or opened
+      if(!compassState.closed){
+        setNextDestination(); // Finding closest destination to visit
+      }
+    }
   }
 
 
@@ -580,12 +680,15 @@ void loop() {
   
   updateDirection();
   
-  if(compassState.distance < MIN_DISTANCE){
+  if(compassState.distance < compassState.destination.radius + MIN_DISTANCE){
+    setVisitedDestination(compassState.destination.id);
     if(!compassState.spinMotor){ // playing theme once
       playTheme();
     }
     compassState.spinMotor = true;
     compassState.spinSpeed = SERVO_SPIN_FAST_SPEED;
+    // TODO: introduce some timer before setting next destination
+    setNextDestination();
   } else if(!compassState.havePosition){
     compassState.spinMotor = true;
     compassState.spinSpeed = SERVO_SPIN_SLOW_SPEED;

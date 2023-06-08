@@ -7,6 +7,15 @@ message Coordinate {
     double longitude = 2;
 }
 
+message MapPoint{
+  uint32 id = 1;
+  string name = 2;
+  uint32 radius = 3;
+  Coordinate coordinates = 4;
+  bool visited = 5;
+}
+
+
 message CompassState {
     Coordinate location = 1;  // Current coordinates from GPS
     bool havePosition = 2; // do we have gps reading or not
@@ -16,7 +25,7 @@ message CompassState {
     int32 dial = 6; // current dial position (degrees)
     float batteryVoltage = 7;
     int32 batteryLevel = 8;  // battery level - %
-    Coordinate destination = 9;
+    MapPoint destination = 9;
     float direction = 10;   // direction to the destination (degrees)
     float distance = 11;    // distance to destination (meters)
     bool disableMotor = 12;

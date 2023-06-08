@@ -43,10 +43,12 @@ void printCompassState(const CompassState& state) {
   Serial.print(state.location.longitude,6);
   Serial.print(")");
 
-  Serial.print(" Destination: (");
-  Serial.print(state.destination.latitude,6);
+  Serial.print(" Destination: ");
+  Serial.print(state.destination.name);
+  Serial.print("(");
+  Serial.print(state.destination.coordinates.latitude,6);
   Serial.print(",");
-  Serial.print(state.destination.longitude,6);
+  Serial.print(state.destination.coordinates.longitude,6);
   Serial.print(")");
 
   Serial.print("\tDistance: ");
