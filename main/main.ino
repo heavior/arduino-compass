@@ -67,7 +67,7 @@ compass_MapPoint destinations[DESTINATIONS_COUNT] = {
   {0, "The Man", 100, true, COORDINATES_MAN, false }
 };
 */
-/*
+
 #define DESTINATIONS_COUNT 23 // youtopia destinations
 compass_MapPoint destinations[] = 
 {
@@ -95,8 +95,8 @@ compass_MapPoint destinations[] =
   { 21, "21) Who gives a Cluck", 5, true, { 32.6524192, -116.179697 }, false },
   { 22, "Temple", 5, true, { 32.6533506, -116.1841735 }, false }
 };
-*/
 
+/*
 
 #define DESTINATIONS_COUNT 4
 compass_MapPoint destinations[] = {
@@ -104,7 +104,7 @@ compass_MapPoint destinations[] = {
     { 1, "1) colgin Ct", 0, true, { 34.1814535, -118.3002961 }, false },
     { 2, "2) Red Top Market & Kitchen", 0, true, { 34.1798233, -118.3010742 }, false },
     { 3, "3) Burbank Liquor & Food Market", 0, true, { 34.1804827, -118.3020486 }, false },
-};
+};*/
 
 
 // destination: id, name, radius (meters), true, {lat,lon}, visited
@@ -680,7 +680,7 @@ void loop() {
   
   updateDirection();
   
-  if(compassState.distance < compassState.destination.radius + MIN_DISTANCE){
+  if(!compassState.closed && (compassState.distance < compassState.destination.radius + MIN_DISTANCE)){
     setVisitedDestination(compassState.destination.id);
     if(!compassState.spinMotor){ // playing theme once
       playTheme();
