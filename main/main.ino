@@ -110,8 +110,6 @@ compass_MapPoint* destination = &destinations[1];
 #include "CompassState.h"
 
 #if BOARD_REVISION == 1   // Arduino nano ble sense rev1
-  #include <Arduino_LSM9DS1.h>
-
   #define BATTERY_PIN   A7  // battery level reading pin
   #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
   #define SERVO_PIN           D2    // servo - digital port
@@ -122,34 +120,27 @@ compass_MapPoint* destination = &destinations[1];
   #include "Motor.h"
   Motor motor(SERVO_PIN);  // Create an instance of the Motor class
 
-
-
   #define COMPASS_PIVOT 180   // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION 1 // 1 - clockwise increase, -1 - counterclockwise
 
-
 #elif BOARD_REVISION == 2 // Arduino nano ble sense rev2
-  #include <Arduino_BMI270_BMM150.h>
-
   #define BATTERY_PIN   A7  // battery level reading pin
   #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
   #define SERVO_PIN           D2    // servo - digital port
 
   #define ENCODER_PIN         A5    // angular encoder - analogue
 
+
+  #include "Sensors.h"
+  Sensors sensors();
+
   #define USE_SERVO true
   #include "Motor.h"
-
 
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
 
 #elif BOARD_REVISION == 3 // Seedstudio XIAO ble sense
-  #include "QMC5883LCompass.h"  // BN-880Q uses QMC5883, same compass available on Amazon
-  // Patch QMC5883LCompass.h with SoftwareI2C.h to use special pins and software implementaion for I2C instead of Wire.h
-
-  #include <LSM6DS3.h> // Seedstudio XIAO BLE SENSE IMU, more details: https://wiki.seeedstudio.com/XIAO-BLE-Sense-IMU-Usage/
-
   #define BATTERY_PIN                     A0    // battery level reading pin
   #define MOTOR_PIN1                      A1    // motor controller - analog port
   #define MOTOR_PIN2                      A2    // motor controller - analog port
@@ -162,6 +153,10 @@ compass_MapPoint* destination = &destinations[1];
   #define MANGETOMETER_WIRE_PIN_SCL       D9       // For magnetometer
   #define MANGETOMETER_WIRE_PIN_SDA       D10      // For magnetometer
 
+
+  #include "Sensors.h"
+  Sensors sensors(MANGETOMETER_WIRE_PIN_SCL, MANGETOMETER_WIRE_PIN_SDA);
+
   #define USE_SERVO false
   #include "Motor.h"
   Motor motor(MOTOR_PIN1, MOTOR_PIN2, MOTOR_PIN_POWER);  // Create an instance of the Motor class
@@ -170,7 +165,6 @@ compass_MapPoint* destination = &destinations[1];
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
 #endif
-
 
 
 // TODO: format my headers as proper libraries
@@ -376,12 +370,10 @@ void setup() {
     Serial.println("GPS ready");
   }
   
-  if (!IMU.begin()) {
-    Serial.println("Failed to initialize IMU!");
+  if (!sensors.begin()) {
+    Serial.println("Failed to initialize Sensors!");
   }else{
-    Serial.println("IMU ready");
-    //TODO: Calibrate magnetometer here
-    IMU.setContinuousMode(); // continous reading for 
+    Serial.println("Sensors ready");
   }
 
   Serial.println("Ready");
@@ -445,14 +437,10 @@ float readCompass(float encoderValue){
   // compass value compensated with accelerometer. will freak out when shaking.
   // TODO: maybe use gyro to introduce noise when shaking
 
-  if (!IMU.accelerationAvailable() || !IMU.magneticFieldAvailable()) {
-    return -1;
-  }
-
   const float declinationAngle = 0;
   // this code generated with chatGPT
   float mx, my, mz, ax, ay, az;
-  IMU.readMagneticField(mx, my, mz);
+  sensors.readMagneticField(mx, my, mz);
 
   if(compassConfig.interpolateCalibrations){
     interpolateCalibration(encoderValue, compassState.currentCalibration, calibrationMatrix,COMPASS_CALIBRATIONS);
@@ -461,7 +449,7 @@ float readCompass(float encoderValue){
   }
   calibrateMagReading (mx, my, mz, compassState.currentCalibration);
 
-  IMU.readAcceleration(ax, ay, az); // this stuff works differently on rev1 and rev2 boards. Probably sensor orientation is off
+  sensors.readAcceleration(ax, ay, az); // this stuff works differently on rev1 and rev2 boards. Probably sensor orientation is off
   float roll = atan2(ay, az);
   float pitch = atan2(-ax, sqrt(ay*ay + az*az));
   /*Serial.print ("raw heading: ");  
@@ -552,12 +540,8 @@ void sendCalibrationDataIfNeeded(){
     Serial.print("nope ");
     return;
   }
-  if (!IMU.magneticFieldAvailable()) {
-    Serial.print("no IMU ");
-    return;
-  }
   float mx, my, mz;
-  IMU.readMagneticField(mx, my, mz);
+  sensors.readMagneticField(mx, my, mz);
   sendCalibrationData(mx, my, mz, compassState.calibrateTarget?(360-compassState.calibrateTarget):0);
 }
 
