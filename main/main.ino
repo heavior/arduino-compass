@@ -1,6 +1,12 @@
 /* DEBUG CONFIGURATION */
+// TODO: don't forget to set correct compilation target when switching boards
 
-#define BOARD_REVISION 3            // prod value: 2
+#ifdef TARGET_SEEED_XIAO_NRF52840_SENSE
+  #define BOARD_REVISION 3            
+#else
+  #define BOARD_REVISION 2            // TODO: find how to distinguish rev1 and rev2
+#endif
+
 
 #include "compassData.pb.h"
 /* To change the structure:
