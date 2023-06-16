@@ -127,14 +127,19 @@ const int duration[] = {         //duration of each note (in ms) Quarter Note is
   500 // delay at the end
 };
 
-void playSparrowTheme(int buzzer, bool (*interrupt)()){
+void playSparrowTheme(int buzzer1, int buzzer2, bool (*interrupt)()){
+  int buzzer = buzzer1;
   for (int i=0;i<203;i++){              //203 is the total number of music notes in the song
-  int wait = duration[i] * songspeed;
-  tone(buzzer,notes[i],wait);          //tone(pin,frequency,duration)
-  if(interrupt()){
-    return;
-  }
-  delay(wait);}                        //delay is used so it doesn't go to the next loop before tone is finished playing
+    int wait = duration[i] * songspeed;
+    digitalWrite(buzzer1, LOW);
+    digitalWrite(buzzer2, LOW);
+    buzzer = buzzer==buzzer1?buzzer2:buzzer1;
+    tone(buzzer, notes[i], wait);          //tone(pin,frequency,duration)
+    if(interrupt()){
+      return;
+    }
+    delay(wait);
+  }                        //delay is used so it doesn't go to the next loop before tone is finished playing
 }
 
 

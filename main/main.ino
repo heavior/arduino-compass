@@ -24,6 +24,9 @@ compass_CompassConfig compassConfig {
   .compensateCompassForTilt = true   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
   };
 
+  #define MOTOR_SPIN_FAST_SPEED 180
+  #define MOTOR_SPIN_SLOW_SPEED 60
+
 
 // some useful locations
 #define COORDINATES_MAN {40.786397, -119.206561}          // Burnin man - The Man - North from home
@@ -100,7 +103,6 @@ compass_MapPoint* destination = &destinations[1];
 #include <Arduino.h>
 #include <ArduinoBLE.h>
 #include <math.h>
-#include <Servo.h>
 #include <TinyGPS++.h>
 #include <pb_encode.h>
 
@@ -123,37 +125,36 @@ Components in use:
 * Gyroscope to compensate magnetometer for tilt
 * GPS module to locate current position
 * Angular encoder to check dial rotation
-* Servo motor to rotate the dial
+* motor to rotate the dial
 * Hall sensor to identify closed lid and send everything to sleep if possible
 * Blutooth to read an update. Turns on after first boot, and shuts down after two minutes without activity
 */
 
 
+#define USE_SERVO false
+#include "Motor.h"
+#if USE_SERVO
+  #define SERVO_PIN           D2    // servo - digital port
+  Motor motor(SERVO_PIN);  // Create an instance of the Motor class
+#else
+  #define MOTOR_PIN1           A1    // motor controller - analog port
+  #define MOTOR_PIN2           A2    // motor controller - analog port
+  #define MOTOR_PIN_POWER      D8    // motor controller power - digital port
+  Motor motor(MOTOR_PIN1,MOTOR_PIN2,MOTOR_PIN_POWER);  // Create an instance of the Motor class
+#endif
+
+
 #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
 #define HALL_SENSOR_THRESHOLD   500   // value below that is a magnet
 
-// TODO: 
-// 1. research better conversion to degrees, this one doesn't really work.
-// 2. find difference between north and arrow
-// 3. test servo rotating speeds, find nice values
-// 4. send right speed and direction to servo
-// 5. stop when angle is correct?
 #define ENCODER_LOW         0     // 50      
 #define ENCODER_HIGH        1023  // 950
 #define ENCODER_PIN         A5    // angular encoder - analogue
 // TODO: change to A3 with new layout
 
-// TODO: we can calculate this version using encoder for feedback
-#define SERVO_PIN           D2    // servo - digital port
-#define SERVO_ZERO_SPEED    90    // 90 is a still position in Servo.h to stop servo motor. Full range supported by servo.h is 0 to 180
-#define SERVO_MAX_SPEED     20    // 30 is prev value, max speed where servo stops accelerating. Note: can go beyond that value, or below to slow it down
-#define SERVO_MIN_SPEED     3     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
-#define SERVO_SPIN_FAST_SPEED   (SERVO_ZERO_SPEED + SERVO_MAX_SPEED)
-#define SERVO_SPIN_SLOW_SPEED   (SERVO_ZERO_SPEED - 2*SERVO_MIN_SPEED)
 
 // TODO: auto-compensate min speed if no rotation happens
 #define DIAL_ANGLE_SENSITIVITY 2  // angle difference where motor locks the engine
-Servo servoMotor;  // Servo Object
 
 #define gpsPort             Serial1 // 
 #define GPS_HDOP_THRESHOLD        500 //  HDOP*100 to consider pointing to the target. See https://en.wikipedia.org/wiki/Dilution_of_precision_(navigation)
@@ -310,7 +311,7 @@ bool checkBattery(){ // return false if level is dangerous
 }
 
 void playTheme(){
-  playSparrowTheme(SERVO_PIN, checkClosedLid); // play theme, but interrupt if lid is closed
+  motor.playTheme(checkClosedLid); // play theme, but interrupt if lid is closed
 }
 
 void setup() {
@@ -336,7 +337,6 @@ void setup() {
 
   }
   pinMode(ENCODER_PIN, INPUT);
-  servoMotor.attach(SERVO_PIN);
 
   gpsPort.begin(9600);
   if (!gpsPort) {  
@@ -492,20 +492,6 @@ int getCompensationAngle(int targetDial){
     compensationAngle = 0;
   }
   return compensationAngle;
-}
-int getServoSpeed(int compensationAngle){
-  float speed = SERVO_ZERO_SPEED;
-
-  // TODO: consider non-linear speed scale
-  speed = mapFloat(compensationAngle, -180, 180, SERVO_ZERO_SPEED - SERVO_MAX_SPEED , SERVO_ZERO_SPEED + SERVO_MAX_SPEED); 
-  
-  if(speed > SERVO_ZERO_SPEED - SERVO_MIN_SPEED && speed < SERVO_ZERO_SPEED){
-    speed = SERVO_ZERO_SPEED - SERVO_MIN_SPEED;
-  }
-  if(speed < SERVO_ZERO_SPEED + SERVO_MIN_SPEED && speed > SERVO_ZERO_SPEED){
-    speed = SERVO_ZERO_SPEED + SERVO_MIN_SPEED;
-  }
-  return (int)speed;
 }
 bool checkClosedLid(){
   int hallValue = analogRead(HALL_SENSOR_PIN);  // Read the value of the hall sensor
@@ -667,12 +653,12 @@ void loop() {
       playTheme();
     }
     compassState.spinMotor = true;
-    compassState.spinSpeed = SERVO_SPIN_FAST_SPEED;
+    compassState.spinSpeed = MOTOR_SPIN_FAST_SPEED;
     // TODO: introduce some timer before setting next destination
     setNextDestination();
   } else if(!compassState.havePosition){
     compassState.spinMotor = true;
-    compassState.spinSpeed = SERVO_SPIN_SLOW_SPEED;
+    compassState.spinSpeed = MOTOR_SPIN_SLOW_SPEED;
   } else {
     compassState.spinMotor = false;
   }
@@ -691,7 +677,7 @@ void loop() {
   }
  
   int compensationAngle = getCompensationAngle(targetDial);
-  int servoSpeed = getServoSpeed(compensationAngle);
+  int servoSpeed = compensationAngle;
 
 
   if(compassState.calibrate){
@@ -710,18 +696,18 @@ void loop() {
 
     if(compassState.closed && !compassState.calibrate){
       // closed lid - kill all movement except in calibration
-      servoSpeed = SERVO_ZERO_SPEED;
+      servoSpeed = 0;
     }
   }
 
   // finally, reset the speed if motor is expected to be disabled
   if(compassState.disableMotor){
-    servoSpeed = SERVO_ZERO_SPEED;
+    servoSpeed = 0;
   }
 
   if(compassState.servoSpeed != servoSpeed){
     compassState.servoSpeed = servoSpeed;
-    servoMotor.write(compassState.servoSpeed);
+    motor.setSpeed(compassState.servoSpeed);
   }
   
 
