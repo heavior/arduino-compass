@@ -1,7 +1,6 @@
 /* DEBUG CONFIGURATION */
 
-#define BLE_REVISION 2            // prod value: 2
-// #define FIX_DIAL_POSITION  0 
+#define BOARD_REVISION 3            // prod value: 2
 
 #include "compassData.pb.h"
 /* To change the structure:
@@ -24,9 +23,9 @@ compass_CompassConfig compassConfig {
   .compensateCompassForTilt = true   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
   };
 
-  #define MOTOR_SPIN_FAST_SPEED 180
-  #define MOTOR_SPIN_SLOW_SPEED 60
-
+#define MOTOR_SPIN_FAST_SPEED 180
+#define MOTOR_SPIN_SLOW_SPEED 60
+// TODO: move slow and fast speed to compassConfig
 
 // some useful locations
 #define COORDINATES_MAN {40.786397, -119.206561}          // Burnin man - The Man - North from home
@@ -106,17 +105,74 @@ compass_MapPoint* destination = &destinations[1];
 #include <TinyGPS++.h>
 #include <pb_encode.h>
 
-#if BLE_REVISION == 1
+#include "compass_utils.h"
+#include "BatteryLevelService.h"
+#include "CompassState.h"
+
+#if BOARD_REVISION == 1   // Arduino nano ble sense rev1
   #include <Arduino_LSM9DS1.h>
-#else
+
+  #define BATTERY_PIN   A7  // battery level reading pin
+  #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
+  #define SERVO_PIN           D2    // servo - digital port
+
+  #define ENCODER_PIN         A5    // angular encoder - analogue
+
+  #define USE_SERVO true
+  #include "Motor.h"
+  Motor motor(SERVO_PIN);  // Create an instance of the Motor class
+
+
+
+  #define COMPASS_PIVOT 180   // calibrated heading value when compass is aligned with north
+  #define COMPASS_DIRECTION 1 // 1 - clockwise increase, -1 - counterclockwise
+
+
+#elif BOARD_REVISION == 2 // Arduino nano ble sense rev2
   #include <Arduino_BMI270_BMM150.h>
+
+  #define BATTERY_PIN   A7  // battery level reading pin
+  #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
+  #define SERVO_PIN           D2    // servo - digital port
+
+  #define ENCODER_PIN         A5    // angular encoder - analogue
+
+  #define USE_SERVO true
+  #include "Motor.h"
+
+
+  #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
+  #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
+
+#elif BOARD_REVISION == 3 // Seedstudio XIAO ble sense
+  #include "QMC5883LCompass.h"  // BN-880Q uses QMC5883, same compass available on Amazon
+  // Patch QMC5883LCompass.h with SoftwareI2C.h to use special pins and software implementaion for I2C instead of Wire.h
+
+  #include <LSM6DS3.h> // Seedstudio XIAO BLE SENSE IMU, more details: https://wiki.seeedstudio.com/XIAO-BLE-Sense-IMU-Usage/
+
+  #define BATTERY_PIN                     A0    // battery level reading pin
+  #define MOTOR_PIN1                      A1    // motor controller - analog port
+  #define MOTOR_PIN2                      A2    // motor controller - analog port
+  #define UV_LED_PIN                      D3    // UV LED for charging the disc
+  #define HALL_SENSOR_PIN                 A4    // hass sensor - analogue
+  #define ENCODER_PIN                     A5    // angular encoder - analogue
+  // D6 - GPX TX
+  // D7 - GPX RX
+  #define MOTOR_PIN_POWER                 D8    // motor controller power - digital port
+  #define MANGETOMETER_WIRE_PIN_SCL       D9       // For magnetometer
+  #define MANGETOMETER_WIRE_PIN_SDA       D10      // For magnetometer
+
+  #define USE_SERVO false
+  #include "Motor.h"
+  Motor motor(MOTOR_PIN1, MOTOR_PIN2, MOTOR_PIN_POWER);  // Create an instance of the Motor class
+
+  // TODO: find actual values
+  #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
+  #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
 #endif
 
 
-#include "compass_utils.h"
-#include "sparrow_music.h"
-#include "BatteryLevelService.h"
-#include "CompassState.h"
+
 // TODO: format my headers as proper libraries
 
 /**
@@ -131,32 +187,15 @@ Components in use:
 */
 
 
-#define USE_SERVO false
-#include "Motor.h"
-#if USE_SERVO
-  #define SERVO_PIN           D2    // servo - digital port
-  Motor motor(SERVO_PIN);  // Create an instance of the Motor class
-#else
-  #define MOTOR_PIN1           A1    // motor controller - analog port
-  #define MOTOR_PIN2           A2    // motor controller - analog port
-  #define MOTOR_PIN_POWER      D8    // motor controller power - digital port
-  Motor motor(MOTOR_PIN1,MOTOR_PIN2,MOTOR_PIN_POWER);  // Create an instance of the Motor class
-#endif
-
-
-#define HALL_SENSOR_PIN         A6    // hass sensor - analogue
 #define HALL_SENSOR_THRESHOLD   500   // value below that is a magnet
 
 #define ENCODER_LOW         0     // 50      
 #define ENCODER_HIGH        1023  // 950
-#define ENCODER_PIN         A5    // angular encoder - analogue
-// TODO: change to A3 with new layout
-
 
 // TODO: auto-compensate min speed if no rotation happens
 #define DIAL_ANGLE_SENSITIVITY 2  // angle difference where motor locks the engine
 
-#define gpsPort             Serial1 // 
+#define gpsPort                   Serial1 // 
 #define GPS_HDOP_THRESHOLD        500 //  HDOP*100 to consider pointing to the target. See https://en.wikipedia.org/wiki/Dilution_of_precision_(navigation)
 #define GPS_ACCURACY              2.5 // GPS accuracy of the hardware in meters
 #define MIN_DISTANCE              (GPS_ACCURACY*2)            // distance when to consider destination reached
@@ -164,7 +203,6 @@ TinyGPSPlus gps;          // GPS object, reads through Serial1
 
 
 #define REF_VOLTAGE   3.3 // reference voltage of the board
-#define BATTERY_PIN   A7  // battery level reading pin
 #define MIN_VOLTAGE   3.3 // minimum voltage for battery
 #define MAX_VOLTAGE   4.2 // maximum voltage for battery
 #define R1 5100.0  // resistance of R1 in the voltage divider circuit
@@ -197,11 +235,7 @@ CompassState compassState{
     .currentCalibration_count=13
 };
 
-#if BLE_REVISION == 1
-
-#define COMPASS_PIVOT 180   // calibrated heading value when compass is aligned with north
-#define COMPASS_DIRECTION 1 // 1 - clockwise increase, -1 - counterclockwise
-
+#if BOARD_REVISION == 1
 
 #define COMPASS_CALIBRATIONS 1
 /*
@@ -257,9 +291,6 @@ const float calibrationMatrix[COMPASS_CALIBRATIONS][13] = {
   {330, 105.08765469639064, -21.165609914832896, -45.8926274839026, 0.9830492118464791, -0.025766654047821403, -0.019296517575932197, -0.0257666540478214, 1.0025747081133132, -0.019144656901783644, -0.019296517575932207, -0.019144656901783654, 1.0160788282731497},
   {345, 113.19227299843816, -4.266111367447122, -44.651796589287336, 0.9879999201482579, -0.018126245129884602, 0.0049784873664251595, -0.018126245129884713, 0.9956721173120885, 0.006518881085469104, 0.004978487366425194, 0.0065188810854691515, 1.0169539420637315}
 };
-
-#define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
-#define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
 
 #endif
 

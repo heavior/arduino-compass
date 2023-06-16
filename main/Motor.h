@@ -1,7 +1,7 @@
 #ifndef Motor_h
 #define Motor_h
 
-#include "compassData.pb.h"
+#include "sparrow_music.h"
 
 #if USE_SERVO
   #include <Servo.h>
@@ -13,6 +13,8 @@
   #define MAX_SPEED     255    // 30 is prev value, max speed where servo stops accelerating. Note: can go beyond that value, or below to slow it down
   #define MIN_SPEED     -255     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
 #endif
+
+
 
 class Motor {
   public:
@@ -30,6 +32,7 @@ class Motor {
 
   private:
     int mapSpeed(int compensationAngle);
+
 #if USE_SERVO
     int motorPin;
     Servo motorServo;
@@ -40,7 +43,6 @@ class Motor {
 #endif
 
 };
-
 
 int Motor::mapSpeed(int compensationAngle){
   float speed = ZERO_SPEED; //using float here for sensitivity around zero
