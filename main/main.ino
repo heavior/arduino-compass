@@ -23,26 +23,7 @@ compass_CompassConfig compassConfig {
   .enableBluetooth = true,    // prod value: true
   .compensateCompassForTilt = true   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
   };
-/*
-struct CompassConfig{
-  //  Actual configuration
-  int encoderZeroDialNorth = 45;     // prod: 45   // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
-  // use 0 when debugging calibration - makes things easier
 
-  // Debug parameters
-  bool interpolateCalibrations = true; // prod value: true, if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
-  bool useDestination = true;    // prod value: true, if false - ignore destination and GPS, point to fixDirection on the dial
-  bool useCompass = true;        // prod value: true, if false - ignore magnetometer, set fixDirection on the dial
-
-  int fixDirection = 0;           // prod value: doesn't matter
-
-  unsigned int delay = 50; // prod value=100, if delay 50, accelrometer doesn't always have time to read
-  bool ignoreHallSensor = false;  // prod value: false
-  bool debugHall = false;         // prod value: false
-  bool enableBluetooth = true;    // prod value: true
-  bool compensateCompassForTilt =  true;   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
-};
-CompassConfig compassConfig;*/
 
 // some useful locations
 #define COORDINATES_MAN {40.786397, -119.206561}          // Burnin man - The Man - North from home
