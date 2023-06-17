@@ -170,9 +170,9 @@ compass_MapPoint* destination = &destinations[1];
   // TODO: find actual values
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
+
 #endif
-
-
+#define MOTOR_CALIBRATION false
 // TODO: format my headers as proper libraries
 
 /**
@@ -536,6 +536,7 @@ void startCalibration(int targetCalibrationAngle){
   compassState.calibrate = true;  // enable calibration mode
   compassState.disableMotor = false; // enabling motor to let it turn to target value
   compassState.calibrateTarget = targetCalibrationAngle;
+  motor.wakeUp();
 }
 void endCalibration(){
   compassState.calibrate = false; // disable calibration mode
@@ -545,7 +546,7 @@ void endCalibration(){
 
 void sendCalibrationDataIfNeeded(){
   if(!compassState.calibrate || !compassState.disableMotor){
-    Serial.print("nope ");
+    Serial.print("Can't send calibration data while motor is running");
     return;
   }
   float mx, my, mz;
@@ -626,14 +627,19 @@ void loop() {
     if (oldClosedValue != compassState.closed){
       // EVENT: lid just closed or opened
       if(!compassState.closed){
+        motor.wakeUp();
         setNextDestination(); // Finding closest destination to visit
+      }else{
+        if(!compassState.calibrate){ // Just closed the lid - send motor to sleep
+          motor.sleep(); // if compass is calibrating - do not send motor to sleep
+        }
       }
     }
   }
 
 
   if(!checkBattery()){
-    //Serial.println("BATTERY LOW !!!");
+    Serial.println("BATTERY LOW !!!");
   }
   
   // TODO: if state (close/open) changed - initiate wakeup or sleep sequence
@@ -731,8 +737,10 @@ void loop() {
     motorSpeed = 0;
     calibrateMotor = false;
   }
+
 //  if(compassState.servoSpeed != motor.mapSpeed(motorSpeed)){
-    compassState.servoSpeed = motor.setSpeed(motorSpeed, calibrateMotor);
+  // TODO: 
+    compassState.servoSpeed = motor.setSpeed(motorSpeed, MOTOR_CALIBRATION && calibrateMotor);
 //  }
   
 
