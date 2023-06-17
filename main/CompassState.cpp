@@ -69,7 +69,7 @@ void printCompassState(const CompassState& state) {
   Serial.print(state.disableMotor?"off": (state.spinMotor?"spin":"on"));
 
   Serial.print("\tSpeed: ");
-  Serial.print(state.spinMotor?state.spinSpeed:state.servoSpeed);
+  Serial.print(state.spinMotor?state.spinSpeed:state.motorSpeed);
 
   Serial.print("\tBattery: ");
   Serial.print(state.batteryVoltage);

@@ -29,7 +29,7 @@ typedef struct _compass_CompassState {
     compass_Coordinate location; /* Current coordinates from GPS */
     bool havePosition; /* do we have gps reading or not */
     bool closed; /* closed lid (based on hall sensor) */
-    int32_t servoSpeed;
+    int32_t motorSpeed;
     int32_t heading; /* direction from north (degrees) */
     int32_t dial; /* current dial position (degrees) */
     float batteryVoltage;
@@ -60,6 +60,8 @@ typedef struct _compass_CompassConfig {
     bool debugHall;
     bool enableBluetooth;
     bool compensateCompassForTilt; /* flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage */
+    uint32_t sunriseTime; /* sunset and sunrise for UV LEDs */
+    uint32_t sunsetTime;
 } compass_CompassConfig;
 
 typedef struct _compass_CalibrationData {
@@ -78,12 +80,12 @@ extern "C" {
 #define compass_Coordinate_init_default          {0, 0}
 #define compass_MapPoint_init_default            {0, "", 0, false, compass_Coordinate_init_default, 0}
 #define compass_CompassState_init_default        {false, compass_Coordinate_init_default, 0, 0, 0, 0, 0, 0, 0, false, compass_MapPoint_init_default, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
-#define compass_CompassConfig_init_default       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define compass_CompassConfig_init_default       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define compass_CalibrationData_init_default     {0, 0, 0, 0}
 #define compass_Coordinate_init_zero             {0, 0}
 #define compass_MapPoint_init_zero               {0, "", 0, false, compass_Coordinate_init_zero, 0}
 #define compass_CompassState_init_zero           {false, compass_Coordinate_init_zero, 0, 0, 0, 0, 0, 0, 0, false, compass_MapPoint_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
-#define compass_CompassConfig_init_zero          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define compass_CompassConfig_init_zero          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define compass_CalibrationData_init_zero        {0, 0, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
@@ -97,7 +99,7 @@ extern "C" {
 #define compass_CompassState_location_tag        1
 #define compass_CompassState_havePosition_tag    2
 #define compass_CompassState_closed_tag          3
-#define compass_CompassState_servoSpeed_tag      4
+#define compass_CompassState_motorSpeed_tag      4
 #define compass_CompassState_heading_tag         5
 #define compass_CompassState_dial_tag            6
 #define compass_CompassState_batteryVoltage_tag  7
@@ -121,6 +123,8 @@ extern "C" {
 #define compass_CompassConfig_debugHall_tag      8
 #define compass_CompassConfig_enableBluetooth_tag 9
 #define compass_CompassConfig_compensateCompassForTilt_tag 10
+#define compass_CompassConfig_sunriseTime_tag    11
+#define compass_CompassConfig_sunsetTime_tag     12
 #define compass_CalibrationData_x_tag            1
 #define compass_CalibrationData_y_tag            2
 #define compass_CalibrationData_z_tag            3
@@ -147,7 +151,7 @@ X(a, STATIC,   SINGULAR, BOOL,     visited,           5)
 X(a, STATIC,   OPTIONAL, MESSAGE,  location,          1) \
 X(a, STATIC,   SINGULAR, BOOL,     havePosition,      2) \
 X(a, STATIC,   SINGULAR, BOOL,     closed,            3) \
-X(a, STATIC,   SINGULAR, INT32,    servoSpeed,        4) \
+X(a, STATIC,   SINGULAR, INT32,    motorSpeed,        4) \
 X(a, STATIC,   SINGULAR, INT32,    heading,           5) \
 X(a, STATIC,   SINGULAR, INT32,    dial,              6) \
 X(a, STATIC,   SINGULAR, FLOAT,    batteryVoltage,    7) \
@@ -176,7 +180,9 @@ X(a, STATIC,   SINGULAR, UINT32,   delay,             6) \
 X(a, STATIC,   SINGULAR, BOOL,     ignoreHallSensor,   7) \
 X(a, STATIC,   SINGULAR, BOOL,     debugHall,         8) \
 X(a, STATIC,   SINGULAR, BOOL,     enableBluetooth,   9) \
-X(a, STATIC,   SINGULAR, BOOL,     compensateCompassForTilt,  10)
+X(a, STATIC,   SINGULAR, BOOL,     compensateCompassForTilt,  10) \
+X(a, STATIC,   SINGULAR, UINT32,   sunriseTime,      11) \
+X(a, STATIC,   SINGULAR, UINT32,   sunsetTime,       12)
 #define compass_CompassConfig_CALLBACK NULL
 #define compass_CompassConfig_DEFAULT NULL
 
@@ -203,7 +209,7 @@ extern const pb_msgdesc_t compass_CalibrationData_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define compass_CalibrationData_size             26
-#define compass_CompassConfig_size               42
+#define compass_CompassConfig_size               54
 #define compass_CompassState_size                485
 #define compass_Coordinate_size                  18
 #define compass_MapPoint_size                    292

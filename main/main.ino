@@ -14,8 +14,6 @@
   2) python3 ../nanopb/generator/nanopb_generator.py compassData.proto;mv compassData.pb.* main 
 */
 
-// TODO: rename servoSpeed to something more relevant, or read the speed from the motor.h
-
 compass_CompassConfig compassConfig { 
   .encoderZeroDialNorth = 45,   // prod: 45   // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
   .interpolateCalibrations = true, // prod value: true, if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
@@ -28,8 +26,14 @@ compass_CompassConfig compassConfig {
   .ignoreHallSensor = false,  // prod value: false
   .debugHall = false,         // prod value: false
   .enableBluetooth = true,    // prod value: true
-  .compensateCompassForTilt = true   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
-  };
+  .compensateCompassForTilt = true,   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
+
+    // sunrise 6:21 am 
+  // sunset 19:30 pm 
+  .sunriseTime = 620,
+  .sunsetTime = 1930
+
+};
 
 #define MOTOR_SPIN_FAST_SPEED 180
 #define MOTOR_SPIN_SLOW_SPEED 60
@@ -218,7 +222,7 @@ CompassState compassState{
     .location ={0,0}, /* Current coordinates from GPS */
     .havePosition=0, /* do we have gps reading or not */
     .closed=false, /* closed lid (based on hall sensor) */
-    .servoSpeed=-1,
+    .motorSpeed=-1,
     .heading=-1, /* direction from north (degrees) */
     .dial=-1, /* current dial position (degrees) */
     .batteryVoltage=0,
@@ -599,6 +603,29 @@ void setNextDestination(){
   //
 }
 
+void disableUVLED(){
+  #ifdef UV_LED_PIN
+    digitalWrite(UV_LED_PIN, LOW);
+  #endif
+}
+void enableUVLED(){
+  #ifdef UV_LED_PIN
+
+  bool needUV = true; // no time yet - keep LED working
+
+  if (gps.time.isUpdated()) {
+    int hour = gps.time.hour();
+    int minute = gps.time.minute();
+    int time = hour * 100 + minute;
+    needUV = time < compassConfig.sunriseTime || time > compassConfig.sunsetTime;
+  }
+
+  if(needUV){
+    digitalWrite(UV_LED_PIN, HIGH);
+  }
+  #endif
+}
+
 void loop() {
   // reading angle from BT service. Negative angle means no calibration needed
   int calibrationCommand = checkCalibrationAngle();
@@ -628,11 +655,13 @@ void loop() {
       // EVENT: lid just closed or opened
       if(!compassState.closed){
         motor.wakeUp();
+        disableUVLED();
         setNextDestination(); // Finding closest destination to visit
       }else{
         if(!compassState.calibrate){ // Just closed the lid - send motor to sleep
           motor.sleep(); // if compass is calibrating - do not send motor to sleep
         }
+        enableUVLED();
       }
     }
   }
@@ -738,9 +767,9 @@ void loop() {
     calibrateMotor = false;
   }
 
-//  if(compassState.servoSpeed != motor.mapSpeed(motorSpeed)){
+//  if(compassState.motorSpeed != motor.mapSpeed(motorSpeed)){
   // TODO: 
-    compassState.servoSpeed = motor.setSpeed(motorSpeed, MOTOR_CALIBRATION && calibrateMotor);
+    compassState.motorSpeed = motor.setSpeed(motorSpeed, MOTOR_CALIBRATION && calibrateMotor);
 //  }
   
 

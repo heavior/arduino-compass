@@ -1,5 +1,9 @@
 syntax = "proto3";
 
+// after updating - update all generated files
+// python3 ../nanopb/generator/nanopb_generator.py compassData.proto;mv compassData.pb.* main 
+//
+
 package compass;
 
 message Coordinate {
@@ -20,7 +24,7 @@ message CompassState {
     Coordinate location = 1;  // Current coordinates from GPS
     bool havePosition = 2; // do we have gps reading or not
     bool closed = 3;// closed lid (based on hall sensor)
-    int32 servoSpeed = 4;
+    int32 motorSpeed = 4;
     int32 heading = 5;  // direction from north (degrees)
     int32 dial = 6; // current dial position (degrees)
     float batteryVoltage = 7;
@@ -52,6 +56,9 @@ message CompassConfig {
   bool debugHall = 8; 
   bool enableBluetooth = 9; 
   bool compensateCompassForTilt = 10; // flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
+
+  uint32 sunriseTime = 11;   // sunset and sunrise for UV LEDs
+  uint32 sunsetTime = 12;
 }
 
 message CalibrationData {
