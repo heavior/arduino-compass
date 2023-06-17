@@ -56,14 +56,14 @@ class Sensors {
 bool Sensors::begin() {
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
-    return false;
+//    return false;
   }else{
     Serial.println("IMU ready");
   }
 
   #if BOARD_REVISION == 3
     // TODO: explore what this compass can do
-    compass.init(pinSCL, pinSDA);
+    compass.init(pinSDA, pinSCL);
   #else
     IMU.setContinuousMode(); // continous reading for 
   #endif

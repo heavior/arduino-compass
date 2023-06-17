@@ -153,8 +153,8 @@ compass_MapPoint* destination = &destinations[1];
   #define UV_LED_PIN                      D3    // UV LED for charging the disc
   #define HALL_SENSOR_PIN                 A4    // hass sensor - analogue
   #define ENCODER_PIN                     A5    // angular encoder - analogue
-  // D6 - GPX TX (goes into RX on GPS)
-  // D7 - GPX RX (goes into TX on GPS)
+  // D6 (TX) - goes into RX on GPS
+  // D7 (RX) - goes into TX on GPS
   #define MOTOR_PIN_SLEEP                 D8    // motor controller power - digital port
   #define MANGETOMETER_WIRE_PIN_SCL       D9       // For magnetometer
   #define MANGETOMETER_WIRE_PIN_SDA       D10      // For magnetometer
