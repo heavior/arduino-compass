@@ -9,11 +9,10 @@
   #define MAX_SPEED     20    // 30 is prev value, max speed where servo stops accelerating. Note: can go beyond that value, or below to slow it down
   #define MIN_SPEED     3     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
 #else
-  #define ZERO_SPEED    0    // 90 is a still position in Servo.h to stop servo motor. Full range supported by servo.h is 0 to 180
-  #define MAX_SPEED     255    // 30 is prev value, max speed where servo stops accelerating. Note: can go beyond that value, or below to slow it down
-  #define MIN_SPEED     -255     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
+  #define ZERO_SPEED    0    
+  #define MAX_SPEED     255  
+  #define MIN_SPEED     48 
 #endif
-
 
 
 class Motor {
@@ -27,11 +26,11 @@ class Motor {
 
     void sleep();
     void wakeUp();
-    void setSpeed(int compensationAngle);
+    int setSpeed(int compensationAngle);
     void playTheme(bool (*interrupt)());
+    int mapSpeed(int compensationAngle);
 
   private:
-    int mapSpeed(int compensationAngle);
 
 #if USE_SERVO
     int motorPin;
@@ -45,17 +44,21 @@ class Motor {
 };
 
 int Motor::mapSpeed(int compensationAngle){
-  float speed = ZERO_SPEED; //using float here for sensitivity around zero
+  if(compensationAngle == 0){
+    return ZERO_SPEED;
+  }
+  //compensationAngle 
+  bool reverse = compensationAngle < 0;
+  if(reverse){
+    compensationAngle = -compensationAngle;
+  }
+  int speed = ZERO_SPEED;
 
   // TODO: consider non-linear speed scale
-  speed = mapFloat(compensationAngle, -180, 180, ZERO_SPEED - MAX_SPEED , ZERO_SPEED + MAX_SPEED); 
-  
-  if(speed > ZERO_SPEED - MIN_SPEED && speed < ZERO_SPEED){
-    speed = ZERO_SPEED - MIN_SPEED;
-  }
-  if(speed < ZERO_SPEED + MIN_SPEED && speed > ZERO_SPEED){
-    speed = ZERO_SPEED + MIN_SPEED;
-  }
+  speed = map(compensationAngle, 0, 180, MIN_SPEED , MAX_SPEED); 
+
+  speed *= reverse?-1:1;
+  speed += ZERO_SPEED;
   return (int)speed;
 }
 
@@ -74,7 +77,9 @@ int Motor::mapSpeed(int compensationAngle){
   }
 
   void Motor::setSpeed(int compensationAngle) {
-    motorServo.write(mapSpeed(compensationAngle));
+    int speed = mapSpeed(compensationAngle);
+    motorServo.write(speed);
+    return speed;
   }
 
   void Motor::playTheme(bool (*interrupt)()){
@@ -93,21 +98,26 @@ int Motor::mapSpeed(int compensationAngle){
   }
 
   void Motor::wakeUp() {
+
+    pinMode(motorPin1,OUTPUT);
+    pinMode(motorPin2,OUTPUT);
+    pinMode(motorPinPower,OUTPUT);
     digitalWrite(motorPinPower, HIGH);
   }
 
-  void Motor::setSpeed(int value) {
-    value = mapSpeed(value);
-    if (value > 0) {
-      digitalWrite(motorPin1, LOW);
-      analogWrite(motorPin2, value);
-    } else if (value < 0) {
-      digitalWrite(motorPin1, LOW);
-      analogWrite(motorPin2, -value);
+  int Motor::setSpeed(int value) {
+    int speed = mapSpeed(value);
+    if (speed > 0) {
+      analogWrite(motorPin2, 0);
+      analogWrite(motorPin1, speed);
+    } else if (speed < 0) {
+      analogWrite(motorPin1, 0);
+      analogWrite(motorPin2, -speed);
     } else {
-      digitalWrite(motorPin1, LOW);
-      digitalWrite(motorPin2, LOW);
+      analogWrite(motorPin1, 0);
+      analogWrite(motorPin2, 0);
     }
+    return speed;
   }
 
   void Motor::playTheme(bool (*interrupt)()){

@@ -14,6 +14,8 @@
   2) python3 ../nanopb/generator/nanopb_generator.py compassData.proto;mv compassData.pb.* main 
 */
 
+// TODO: rename servoSpeed to something more relevant, or read the speed from the motor.h
+
 compass_CompassConfig compassConfig { 
   .encoderZeroDialNorth = 45,   // prod: 45   // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
   .interpolateCalibrations = true, // prod value: true, if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
@@ -116,10 +118,9 @@ compass_MapPoint* destination = &destinations[1];
 #include "CompassState.h"
 
 #if BOARD_REVISION == 1   // Arduino nano ble sense rev1
-  #define BATTERY_PIN   A7  // battery level reading pin
-  #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
+  #define BATTERY_PIN         A7  // battery level reading pin
+  #define HALL_SENSOR_PIN     A6    // hass sensor - analogue
   #define SERVO_PIN           D2    // servo - digital port
-
   #define ENCODER_PIN         A5    // angular encoder - analogue
 
   #define USE_SERVO true
@@ -130,10 +131,9 @@ compass_MapPoint* destination = &destinations[1];
   #define COMPASS_DIRECTION 1 // 1 - clockwise increase, -1 - counterclockwise
 
 #elif BOARD_REVISION == 2 // Arduino nano ble sense rev2
-  #define BATTERY_PIN   A7  // battery level reading pin
-  #define HALL_SENSOR_PIN         A6    // hass sensor - analogue
+  #define BATTERY_PIN         A7  // battery level reading pin
+  #define HALL_SENSOR_PIN     A6    // hass sensor - analogue
   #define SERVO_PIN           D2    // servo - digital port
-
   #define ENCODER_PIN         A5    // angular encoder - analogue
 
 
@@ -153,9 +153,9 @@ compass_MapPoint* destination = &destinations[1];
   #define UV_LED_PIN                      D3    // UV LED for charging the disc
   #define HALL_SENSOR_PIN                 A4    // hass sensor - analogue
   #define ENCODER_PIN                     A5    // angular encoder - analogue
-  // D6 - GPX TX
-  // D7 - GPX RX
-  #define MOTOR_PIN_POWER                 D8    // motor controller power - digital port
+  // D6 - GPX TX (goes into RX on GPS)
+  // D7 - GPX RX (goes into TX on GPS)
+  #define MOTOR_PIN_SLEEP                 D8    // motor controller power - digital port
   #define MANGETOMETER_WIRE_PIN_SCL       D9       // For magnetometer
   #define MANGETOMETER_WIRE_PIN_SDA       D10      // For magnetometer
 
@@ -165,7 +165,7 @@ compass_MapPoint* destination = &destinations[1];
 
   #define USE_SERVO false
   #include "Motor.h"
-  Motor motor(MOTOR_PIN1, MOTOR_PIN2, MOTOR_PIN_POWER);  // Create an instance of the Motor class
+  Motor motor(MOTOR_PIN1, MOTOR_PIN2, MOTOR_PIN_SLEEP);  // Create an instance of the Motor class
 
   // TODO: find actual values
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
@@ -381,6 +381,8 @@ void setup() {
   }else{
     Serial.println("Sensors ready");
   }
+
+  motor.wakeUp();
 
   Serial.println("Ready");
 
@@ -698,7 +700,7 @@ void loop() {
   }
  
   int compensationAngle = getCompensationAngle(targetDial);
-  int servoSpeed = compensationAngle;
+  int motorSpeed = compensationAngle;
 
 
   if(compassState.calibrate){
@@ -712,23 +714,21 @@ void loop() {
   }else{
     // some special animations here
     if(compassState.spinMotor){
-      servoSpeed = compassState.spinSpeed;
+      motorSpeed = compassState.spinSpeed;
     }
 
     if(compassState.closed && !compassState.calibrate){
       // closed lid - kill all movement except in calibration
-      servoSpeed = 0;
+      motorSpeed = 0;
     }
   }
 
   // finally, reset the speed if motor is expected to be disabled
   if(compassState.disableMotor){
-    servoSpeed = 0;
+    motorSpeed = 0;
   }
-
-  if(compassState.servoSpeed != servoSpeed){
-    compassState.servoSpeed = servoSpeed;
-    motor.setSpeed(compassState.servoSpeed);
+  if(compassState.servoSpeed != motor.mapSpeed(motorSpeed)){
+    compassState.servoSpeed = motor.setSpeed(motorSpeed);
   }
   
 
