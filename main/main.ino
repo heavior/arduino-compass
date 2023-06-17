@@ -31,7 +31,10 @@ compass_CompassConfig compassConfig {
     // sunrise 6:21 am 
   // sunset 19:30 pm 
   .sunriseTime = 620,
-  .sunsetTime = 1930
+  .sunsetTime = 1930,
+  .timeZoneOffset = -800 // PST timezone - +8 hours
+  // TODO: need to read that from mobile and store permanently
+  // TODO: actually, better read NMEA sentence GPZDA "Date and Time"  that has timezone
 
 };
 
@@ -62,7 +65,7 @@ compass_MapPoint destinations[DESTINATIONS_COUNT] = {
   {0, "The Man", 100, true, COORDINATES_MAN, false }
 };
 */
-
+/*
 #define DESTINATIONS_COUNT 23 // youtopia destinations
 compass_MapPoint destinations[] = 
 {
@@ -90,17 +93,14 @@ compass_MapPoint destinations[] =
   { 21, "21) Who gives a Cluck", 5, true, { 32.6524192, -116.179697 }, false },
   { 22, "Temple", 5, true, { 32.6533506, -116.1841735 }, false }
 };
-
-/*
-
+*/
 #define DESTINATIONS_COUNT 4
 compass_MapPoint destinations[] = {
     { 0, "0) home", 0, true, { 34.1807809, -118.3008975 }, false },
     { 1, "1) colgin Ct", 0, true, { 34.1814535, -118.3002961 }, false },
     { 2, "2) Red Top Market & Kitchen", 0, true, { 34.1798233, -118.3010742 }, false },
     { 3, "3) Burbank Liquor & Food Market", 0, true, { 34.1804827, -118.3020486 }, false },
-};*/
-
+};
 
 // destination: id, name, radius (meters), true, {lat,lon}, visited
 compass_MapPoint* destination = &destinations[1];
@@ -336,6 +336,9 @@ bool checkBattery(){ // return false if level is dangerous
   // measure battery voltage using analog input
   int batteryReading = analogRead(BATTERY_PIN);
   compassState.batteryVoltage = (float)((int)(10*batteryReading / 1023.0 * REF_VOLTAGE * (R1 + R2) / R2))/10;
+  if(compassState.batteryVoltage<.5){ // no battery
+    return true;
+  }
 
   // calculate battery percentage
   float remainingCapacity = (compassState.batteryVoltage - MIN_VOLTAGE) / (MAX_VOLTAGE - MIN_VOLTAGE) * 100.0;
@@ -436,7 +439,7 @@ bool readGps(){ // return true if there is a good position available now.
      }
     */
     // 
-    compassState.havePosition = (precision < GPS_HDOP_THRESHOLD);
+    compassState.havePosition = true;//(precision < GPS_HDOP_THRESHOLD);// any position is good enough
     // TODO: monitor the precision and try to unlock compass earlier. Maybe if the distance is exceeding precision, we can assume it works!
     
   }else{
@@ -616,7 +619,11 @@ void enableUVLED(){
   if (gps.time.isUpdated()) {
     int hour = gps.time.hour();
     int minute = gps.time.minute();
-    int time = hour * 100 + minute;
+
+    int time =  100*hour + minute + compassConfig.timeZoneOffset;
+    if(time<0){
+      time+=2400;
+    }
     needUV = time < compassConfig.sunriseTime || time > compassConfig.sunsetTime;
   }
 
@@ -668,7 +675,7 @@ void loop() {
 
 
   if(!checkBattery()){
-    Serial.println("BATTERY LOW !!!");
+    //Serial.println("BATTERY LOW !!!");
   }
   
   // TODO: if state (close/open) changed - initiate wakeup or sleep sequence

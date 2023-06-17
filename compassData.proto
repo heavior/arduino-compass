@@ -59,6 +59,7 @@ message CompassConfig {
 
   uint32 sunriseTime = 11;   // sunset and sunrise for UV LEDs
   uint32 sunsetTime = 12;
+  int32 timeZoneOffset = 13;
 }
 
 message CalibrationData {
