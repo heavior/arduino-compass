@@ -11,8 +11,12 @@
 #else
   #define ZERO_SPEED    0    
   #define MAX_SPEED     255  
-  #define MIN_SPEED     48 
+  #define MIN_SPEED     32 
 #endif
+
+#define MIN_CALIBRATION_TIME  500 // need at least half a second to make a calibration decision
+#define CALIBRATION_INCREASE  1 // need at least half a second to make a calibration decision
+#define CALIBRATION_DECREASE  4 // need at least half a second to make a calibration decision
 
 
 class Motor {
@@ -26,12 +30,16 @@ class Motor {
 
     void sleep();
     void wakeUp();
-    int setSpeed(int compensationAngle);
+    int setSpeed(int value);
+    int setSpeed(int compensationAngle, bool calibrate);
     void playTheme(bool (*interrupt)());
     int mapSpeed(int compensationAngle);
 
   private:
-
+    int lastCompensationAngle;
+    unsigned long lastCalibrationTime;
+    int spinDirection;
+    int minSpeed = MIN_SPEED;
 #if USE_SERVO
     int motorPin;
     Servo motorServo;
@@ -55,7 +63,7 @@ int Motor::mapSpeed(int compensationAngle){
   int speed = ZERO_SPEED;
 
   // TODO: consider non-linear speed scale
-  speed = map(compensationAngle, 0, 180, MIN_SPEED , MAX_SPEED); 
+  speed = map(compensationAngle, 0, 180, minSpeed , MAX_SPEED); 
 
   speed *= reverse?-1:1;
   speed += ZERO_SPEED;
@@ -76,10 +84,19 @@ int Motor::mapSpeed(int compensationAngle){
     motorServo.attach(motorPin);
   }
 
-  void Motor::setSpeed(int compensationAngle) {
-    int speed = mapSpeed(compensationAngle);
+  int Motor::setSpeed(int value) {
+    lastValue = value;
+    int speed = mapSpeed(value);
     motorServo.write(speed);
     return speed;
+  }
+
+  int Motor::setSpeed(int compensationAngle, bool calibrate) {
+    if(calibrate){
+      Serial.println("calibration is not implemented for Servo");
+      // TODO: if we ever go back to Servo again - Servo might be not calibrated around the center, so would be nice to implement it
+    }
+    return setSpeed(compensationAngle);
   }
 
   void Motor::playTheme(bool (*interrupt)()){
@@ -105,8 +122,8 @@ int Motor::mapSpeed(int compensationAngle){
     digitalWrite(motorPinPower, HIGH);
   }
 
-  int Motor::setSpeed(int value) {
-    int speed = mapSpeed(value);
+  int Motor::setSpeed(int compensationAngle) {
+    int speed = mapSpeed(compensationAngle);
     if (speed > 0) {
       analogWrite(motorPin2, 0);
       analogWrite(motorPin1, speed);
@@ -117,6 +134,58 @@ int Motor::mapSpeed(int compensationAngle){
       analogWrite(motorPin1, 0);
       analogWrite(motorPin2, 0);
     }
+    return speed;
+  }
+
+  int Motor::setSpeed(int compensationAngle, bool calibrate) {
+    // TODO: add clock here maybe
+    if(calibrate){
+      // TODO: add clock here maybe
+      bool canMakeCalibrationCorrection = lastCalibrationTime && compensationAngle && lastCompensationAngle && (millis()  - lastCalibrationTime > MIN_CALIBRATION_TIME);
+      if(canMakeCalibrationCorrection){ // Check that we have data to start calibration
+        /*int sign = compensationAngle > 0?1:-1;
+        if(sign*lastCompensationAngle < sign*compensationAngle){
+          // wrong direction
+          // TODO: maybe we should not try to detect direction
+          Serial.print("change direction");
+          direction = -direction;
+        }*/
+        if(lastCompensationAngle == compensationAngle){ 
+          // no changes in the angle - maybe increase min speed
+          // TODO: when to decrease min speed?
+          // TODO: this should be visible over BT
+          minSpeed+=CALIBRATION_INCREASE;
+
+          Serial.print("Motor calibration ");
+          Serial.print(compensationAngle);
+          Serial.print(" - increase min speed: ");
+          Serial.println(minSpeed);
+          lastCompensationAngle = 0; // skip next calibration
+          lastCalibrationTime = 0;
+        }
+        if(lastCompensationAngle * compensationAngle<0){
+          minSpeed-=CALIBRATION_DECREASE;
+          Serial.print("Motor calibration ");
+          Serial.print(compensationAngle);
+          Serial.print(" - decrease min speed: ");
+          Serial.println(minSpeed);
+          lastCompensationAngle = 0; // skip next calibration
+          lastCalibrationTime = 0;
+        }
+        if(lastCompensationAngle){
+          lastCompensationAngle = compensationAngle;
+        }
+      }else{
+        if(!lastCalibrationTime){
+          lastCalibrationTime = millis();
+        }
+        lastCompensationAngle = compensationAngle;
+      }
+    }else{
+      lastCompensationAngle = 0; // no calibration - forget old angle value
+      lastCalibrationTime = 0;
+    }
+    int speed = setSpeed(compensationAngle);
     return speed;
   }
 

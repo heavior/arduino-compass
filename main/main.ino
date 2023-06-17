@@ -701,6 +701,7 @@ void loop() {
  
   int compensationAngle = getCompensationAngle(targetDial);
   int motorSpeed = compensationAngle;
+  bool calibrateMotor = true;
 
 
   if(compassState.calibrate){
@@ -715,24 +716,27 @@ void loop() {
     // some special animations here
     if(compassState.spinMotor){
       motorSpeed = compassState.spinSpeed;
+      calibrateMotor = false;
     }
 
     if(compassState.closed && !compassState.calibrate){
       // closed lid - kill all movement except in calibration
       motorSpeed = 0;
+      calibrateMotor = false;
     }
   }
 
   // finally, reset the speed if motor is expected to be disabled
   if(compassState.disableMotor){
     motorSpeed = 0;
+    calibrateMotor = false;
   }
-  if(compassState.servoSpeed != motor.mapSpeed(motorSpeed)){
-    compassState.servoSpeed = motor.setSpeed(motorSpeed);
-  }
+//  if(compassState.servoSpeed != motor.mapSpeed(motorSpeed)){
+    compassState.servoSpeed = motor.setSpeed(motorSpeed, calibrateMotor);
+//  }
   
 
-  printCompassState (compassState);
+  //printCompassState (compassState);
   updateCompassStateBLE (compassState);
   sendCompassConfigBLE (compassConfig); // TODO: change this to pull, not notify
 
