@@ -191,8 +191,8 @@ int Motor::mapSpeed(int compensationAngle){
 
   void Motor::playTheme(bool (*interrupt)()){
     setSpeed(0);
-    // TODO: switch to back and forth
-    playSparrowTheme(motorPin1, motorPin2, interrupt);
+    // Back and forth didn't work very well
+    playSparrowTheme(motorPin1, motorPin1, interrupt);
   }
 
 #endif

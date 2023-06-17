@@ -131,8 +131,8 @@ void playSparrowTheme(int buzzer1, int buzzer2, bool (*interrupt)()){
   int buzzer = buzzer1;
   for (int i=0;i<203;i++){              //203 is the total number of music notes in the song
     int wait = duration[i] * songspeed;
-    digitalWrite(buzzer1, LOW);
-    digitalWrite(buzzer2, LOW);
+    analogWrite(buzzer1, 0);
+    analogWrite(buzzer2, 0);
     buzzer = buzzer==buzzer1?buzzer2:buzzer1;
     tone(buzzer, notes[i], wait);          //tone(pin,frequency,duration)
     if(interrupt()){
