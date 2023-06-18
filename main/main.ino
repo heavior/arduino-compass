@@ -132,24 +132,13 @@ So we need to implement a non-blocking version of analogRead.
 
 max analog value for XIAO is different from arduino, so need to use 4095 isntead of 1023
 need to enable voltage read
-
-  digitalWrite(VBAT_ENABLE, LOW);
-  read battery
-  digitalWrite(VBAT_ENABLE, HIGH);
-
-  // " The battery charging current is selectable as 50mA or 100mA, where you can set Pin13 as high or low to change it to 50mA or 100mA." 
-  PIN_CHARGING_CURRENT
-
-
-  Two wires??? How?
-pinMode(BAT_HIGH_CHARGE, OUTPUT);
-  pinMode(P0_13, OUTPUT);   //Charge Current setting pin
-  pinMode(P0_14, OUTPUT);   //Enable Battery Voltage monitoring pin
-  digitalWrite(P0_13, LOW); //Charge Current 100mA   
-  digitalWrite(P0_14, LOW); //Enable
-
 */
-  #define BATTERY_PIN                     A0 // PIN_VBAT    // P0_31 // A0 // battery level reading pin
+  #define BATTERY_PIN                     PIN_VBAT    // P0_31  battery level reading pin
+  #define BATTERY_PIN_ENABLE              P0_14  // pin to allow readin battery level. Need to set to LOW to enable
+  #define BATTERY_PIN_HIGH_CHARGE         P0_13  // pin to allow ZIAO charge battery at 100ma. Need to set to LOW for charging
+  #define BATTERY_PIN_CHARGING_STATUS     P0_17   // this is charging LED pin
+
+  // A0: UNUSED PIN, later - control main power line for sleeping during charging
   #define MOTOR_PIN1                      A1    // motor controller - analog port
   #define MOTOR_PIN2                      A2    // motor controller - analog port
   #define UV_LED_PIN                      D3    // UV LED for charging the disc
@@ -162,8 +151,8 @@ pinMode(BAT_HIGH_CHARGE, OUTPUT);
   #define MANGETOMETER_WIRE_PIN_SDA       D10      // For magnetometer
 
   #define UV_LED_TIME_CONTROL true
-  #define R1 510.0  // resistance of R1 in the voltage divider circuit inside XIAO
-  #define R2 1000.0 //10000.0 // resistance of R2 in the voltage divider circuit inside XIAO
+  #define R1 1000.0  // resistance of R1 in the voltage divider circuit inside XIAO
+  #define R2 510.0 //10000.0 // resistance of R2 in the voltage divider circuit inside XIAO
 
   #include "Sensors.h"
   Sensors sensors(MANGETOMETER_WIRE_PIN_SCL, MANGETOMETER_WIRE_PIN_SDA);
@@ -330,11 +319,37 @@ float lpFilter(float value, float oldValue, float alp){
   return oldValue*(1.f-alp)+ alp*value;
 }
 
-
+// TODO: do not check battery each loop (to save battery)
 bool checkBattery(){ // return false if level is dangerous
   // measure battery voltage using analog input
-  int batteryReading = analogRead(BATTERY_PIN);
-  compassState.batteryVoltage = (float)((int)(10*batteryReading / 1023.0 * REF_VOLTAGE * (R1 + R2) / R2))/10;
+  int batteryReading = 0;
+  bool charging = false;
+  #ifdef BATTERY_PIN_ENABLE
+    digitalWrite(BATTERY_PIN_ENABLE, LOW); // connect pull-down resistors on XIAO to read battery level
+    batteryReading = analogRead(BATTERY_PIN);
+    digitalWrite(BATTERY_PIN_ENABLE, HIGH);// disconnect pull-down resistors on XIAO to read battery level
+  #else
+    batteryReading = analogRead(BATTERY_PIN);
+  #endif
+
+  #ifdef BATTERY_PIN_CHARGING_STATUS
+    charging = digitalRead(BATTERY_PIN_CHARGING_STATUS) == LOW;
+  #endif
+
+  float inputVoltage = REF_VOLTAGE * batteryReading / 1023;
+  float batteryVoltage = inputVoltage * (R1 + R2) / R2;
+  compassState.batteryVoltage = (float)((int)(10*batteryVoltage))/10; // cut second decimal digit 
+
+  Serial.print("batterty pin reading: ");
+  Serial.print(batteryReading);
+  Serial.print(" votage: ");
+  Serial.print(compassState.batteryVoltage);
+  Serial.print(" charging?: ");
+  Serial.println(charging);
+  if(charging){
+    compassState.batteryVoltage = -compassState.batteryVoltage;
+  }
+
   if(compassState.batteryVoltage<.5){ // no battery
     return true;
   }
@@ -430,8 +445,6 @@ void setup() {
     BLE.advertise();
 
   }
-  pinMode(ENCODER_PIN, INPUT);
-
   gpsPort.begin(9600);
   if (!gpsPort) {  
     Serial.println("Failed to initialize GPS!");   
@@ -444,6 +457,22 @@ void setup() {
   }else{
     Serial.println("Sensors ready");
   }
+
+
+  pinMode(ENCODER_PIN, INPUT);
+
+  pinMode(BATTERY_PIN, INPUT);
+  #ifdef BATTERY_PIN_ENABLE
+    // battery things initialisation
+    pinMode(BATTERY_PIN_ENABLE, OUTPUT);
+  #endif
+  #ifdef BATTERY_PIN_CHARGING_STATUS
+    pinMode(BATTERY_PIN_CHARGING_STATUS, INPUT);// trying to read this pin to see if battery is charging
+  #endif
+  #ifdef BATTERY_PIN_HIGH_CHARGE // remove BATTERY_PIN_HIGH_CHARGE and it will not be trying to charge high
+    pinMode(BATTERY_PIN_HIGH_CHARGE, OUTPUT);
+    digitalWrite(BATTERY_PIN_HIGH_CHARGE, LOW); // setting XIAO to charge battery at high charge
+  #endif
 
   motor.wakeUp();
 
