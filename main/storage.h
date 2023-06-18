@@ -9,6 +9,7 @@
 #include "string.h"
 #include "compassData.pb.h"
 
+#define DEBUG_FILES false
 #define MAX_MAP_POINTS (NANO33BLE_FS_SIZE_KB * 1024 / (compass_MapPoint_size + 20))
 // checking how many points can we support in a file. not a presice estimation, but will do for now
 // roughly - 1000 points, can reduce name length to accomodate more. 
@@ -35,6 +36,11 @@ void write_map_points(const char *filename, compass_MapPoint* points, size_t num
 
     // Write the CSV header
     char header[] = "id,name,latitude,longitude,radius,visited\n";
+    #if DEBUG_FILES
+      Serial.print("writing file ");
+      Serial.println(filename);
+      Serial.print(header);
+    #endif
     fwrite(header, 1, sizeof(header)-1,file);
     if(num_points > num_points > MAX_MAP_POINTS){ 
       num_points = MAX_MAP_POINTS;
@@ -43,10 +49,13 @@ void write_map_points(const char *filename, compass_MapPoint* points, size_t num
     for (size_t i = 0; i < num_points; ++i) {
         char buffer[512];
         int visited = points[i].visited ? 1 : 0;  // Convert bool to int
-        snprintf(buffer, sizeof(buffer), "%u,%s,%lf,%lf,%u,%d\n",
+        snprintf(buffer, sizeof(buffer), "%u,%s,%.6lf,%.6lf,%u,%d\n",
             points[i].id, points[i].name, points[i].coordinates.latitude, 
             points[i].coordinates.longitude, points[i].radius, visited);
 
+        #if DEBUG_FILES
+          Serial.print(buffer);
+        #endif
         fwrite(buffer, 1, strlen(buffer),file);
     }
 
@@ -75,6 +84,12 @@ compass_MapPoint* read_map_points(const char *filename, size_t *num_points) {
     char header[256];
     fgets(header, sizeof(header),file);
 
+    #if DEBUG_FILES
+      Serial.print("reading file ");
+      Serial.println(filename);
+      Serial.print(header);
+    #endif
+
     // Allocate memory for the points
     compass_MapPoint* points = (compass_MapPoint*)malloc(*num_points * sizeof(compass_MapPoint));
 
@@ -82,6 +97,11 @@ compass_MapPoint* read_map_points(const char *filename, size_t *num_points) {
     for (size_t i = 0; i < *num_points; ++i) {
         char line[512];
         fgets(line, sizeof(line),file);
+
+        #if DEBUG_FILES
+          Serial.print(line);
+        #endif
+
         // Parse the line into a compass_MapPoint
         sscanf(line, "%u,%255[^,],%lf,%lf,%u,%d\n",
             &points[i].id, points[i].name, &points[i].coordinates.latitude, 

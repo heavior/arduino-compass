@@ -38,6 +38,8 @@ compass_CompassConfig compassConfig {
 
 };
 
+//#define OVERWRITE_MAP true
+
 #define MOTOR_SPIN_FAST_SPEED 180
 #define MOTOR_SPIN_SLOW_SPEED 60
 // TODO: move slow and fast speed to compassConfig
@@ -386,9 +388,9 @@ void readMap(){
     Serial.print(destinations[i].name);
 
     Serial.print(" (");
-    Serial.print(destinations[i].coordinates.latitude);
+    Serial.print(destinations[i].coordinates.latitude,6);
     Serial.print(",");
-    Serial.print(destinations[i].coordinates.longitude);
+    Serial.print(destinations[i].coordinates.longitude,6);
     Serial.print(") r:");
     Serial.print(destinations[i].radius);
     Serial.print(" visited:");
@@ -399,7 +401,6 @@ void readMap(){
   //free(read_points);
 
 }
-
 void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
   delay(5000);
