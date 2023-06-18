@@ -352,6 +352,7 @@ void playTheme(){
 void saveMap(){
   // Write the map points to a CSV file
   if(destinations){
+    Serial.println("Saving map to memory");
     write_map_points(MAP_FILE, destinations, destinationsCount);
   }
 }
@@ -621,6 +622,7 @@ void setVisitedDestination(uint32_t id){
       destinations[i].visited = true;
     }  
   }
+  saveMap(); // saving state to memory
 }
 
 void resetDestinations(){
