@@ -139,7 +139,10 @@ need to enable voltage read
   #define BATTERY_PIN_HIGH_CHARGE         P0_13  // pin to allow XIAO charge battery at 100ma. Need to set to LOW for charging
   #define BATTERY_PIN_CHARGING_STATUS     P0_17   // this is charging LED pin
 
-  // A0: UNUSED PIN, later - control main power line for sleeping during charging
+  // uncomment to enable power switch control:
+  // #define POWER_SWITCH                    A0    // motor controller - analog port
+
+
   #define MOTOR_PIN1                      A1    // motor controller - analog port
   #define MOTOR_PIN2                      A2    // motor controller - analog port
   #define UV_LED_PIN                      D3    // UV LED for charging the disc
@@ -426,6 +429,11 @@ void setup() {
     Serial.println("Sensors ready");
   }
 
+  #ifdef POWER_SWITCH // main switch transistor 
+    // TODO: power it down when charging
+    pinMode(POWER_SWITCH, OUTPUT);
+    digitalWrite(POWER_SWITCH, HIGH); 
+  #endif
 
   pinMode(ENCODER_PIN, INPUT);
 
