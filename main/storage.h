@@ -1,14 +1,13 @@
 #ifndef STORAGE_H
 #define STORAGE_H
 
-#define NANO33BLE_FS_SIZE_KB        512 // 512 kb of data per file 
+#define NANO33BLE_FS_SIZE_KB        256 // 512 kb of data per file 
 
 #include <FS_Nano33BLE.h> 
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
 #include "compassData.pb.h"
-
 
 #define MAX_MAP_POINTS (NANO33BLE_FS_SIZE_KB * 1024 / (compass_MapPoint_size + 20))
 // checking how many points can we support in a file. not a presice estimation, but will do for now
@@ -47,6 +46,7 @@ void write_map_points(const char *filename, compass_MapPoint* points, size_t num
         snprintf(buffer, sizeof(buffer), "%u,%s,%lf,%lf,%u,%d\n",
             points[i].id, points[i].name, points[i].coordinates.latitude, 
             points[i].coordinates.longitude, points[i].radius, visited);
+
         fwrite(buffer, 1, strlen(buffer),file);
     }
 
@@ -63,7 +63,8 @@ compass_MapPoint* read_map_points(const char *filename, size_t *num_points) {
     // Determine the number of lines in the file (ignoring the header)
     *num_points = 0;
     while (!feof(file)) {
-        if (fgetc(file) == '\n') {
+        char c = fgetc(file);
+        if (c == '\n') {
             (*num_points)++;
         }
     }
@@ -72,14 +73,15 @@ compass_MapPoint* read_map_points(const char *filename, size_t *num_points) {
     // Rewind the file and skip the header line
     fseek(file,0,SEEK_SET);
     char header[256];
-    fread(header, sizeof(header),1,file);
+    fgets(header, sizeof(header),file);
+
     // Allocate memory for the points
     compass_MapPoint* points = (compass_MapPoint*)malloc(*num_points * sizeof(compass_MapPoint));
 
     // Read each line from the file
     for (size_t i = 0; i < *num_points; ++i) {
         char line[512];
-        fread(line, sizeof(line),1,file);
+        fgets(line, sizeof(line),file);
         // Parse the line into a compass_MapPoint
         sscanf(line, "%u,%255[^,],%lf,%lf,%u,%d\n",
             &points[i].id, points[i].name, &points[i].coordinates.latitude, 
