@@ -58,51 +58,17 @@ compass_CompassConfig compassConfig {
 #define COORDINATES_CURROS {34.183580992498726, -118.29623564524786} // Some point in Miller elementary
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
-#define DESTINATIONS_COUNT 1
-compass_MapPoint destinations[DESTINATIONS_COUNT] = {
-//  {0, "Home", 20, true, COORDINATES_MILLER_PARK, true }, // fixed destination, visited = true
-  {0, "The Man", 100, true, COORDINATES_MAN, false }
-};
-*/
-/*
-#define DESTINATIONS_COUNT 23 // youtopia destinations
-compass_MapPoint destinations[] = 
-{
-  { 0, "Home", 10, true, {32.651426442942004, -116.18317194896657}, true }, // fixed destination, visited = true
-  { 1, "1) Body Dysturbia", 5, true, { 32.6520232, -116.185332 }, false },
-  { 2, "2) Danger Beans Coffee", 5, true, { 32.652025, -116.1849642 }, false },
-  { 3, "3) Dichroic Tesseract", 5, true, { 32.6521514, -116.1842883 }, false },
-  { 4, "4) Nandily Tea Lounge", 5, true, { 32.6521695, -116.183945 }, false },
-  { 5, "5) Baby Seal Club Bar", 5, true, { 32.6525797, -116.183826 }, false },
-  { 6, "6) Ring Of Fire", 5, true, { 32.6529868, -116.183885 }, false },
-  { 7, "7) The Meadow of Lambient Gladdering", 5, true, { 32.6532332, -116.1842593 }, false },
-  { 8, "8) Art In Motion", 5, true, { 32.6533901, -116.184097 }, false },
-  { 9, "9) Phoenix Syndrome", 5, true, { 32.6518185, -116.1837364 }, false },
-  { 10, "10) Gathering of Unlimited Devotion", 5, true, { 32.6520127, -116.1834896 }, false },
-  { 11, "11) Poultry In Motion", 5, true, { 32.6513217, -116.1824865 }, false },
-  { 12, "12) Those Lights Out There", 5, true, { 32.6523605, -116.1820037 }, false },
-  { 13, "13) Deep Sea Kingdom", 5, true, { 32.6517553, -116.1814673 }, false },
-  { 14, "14) Satanic Drug Confessional", 5, true, { 32.6517959, -116.1810273 }, false },
-  { 15, "15) Little Free Satanic Drug Thing Library", 5, true, { 32.651683, -116.1806948 }, false },
-  { 16, "16) YOU", 5, true, { 32.6533813, -116.1820734 }, false },
-  { 17, "17) Return of Toxic Unicorn", 5, true, { 32.6531735, -116.1819661 }, false },
-  { 18, "18) Mr Tenterbator The Galactic Jelly Fish", 5, true, { 32.6536703, -116.1816335 }, false },
-  { 19, "19) Jackalope Chaos Entity", 5, true, { 32.6535077, -116.1810113 }, false },
-  { 20, "20) Barrel Lounge", 5, true, { 32.6530425, -116.1810488 }, false },
-  { 21, "21) Who gives a Cluck", 5, true, { 32.6524192, -116.179697 }, false },
-  { 22, "Temple", 5, true, { 32.6533506, -116.1841735 }, false }
-};
-*/
-#define DESTINATIONS_COUNT 4
-compass_MapPoint destinations[] = {
-    { 0, "0) home", 0, true, { 34.1807809, -118.3008975 }, false },
-    { 1, "1) colgin Ct", 0, true, { 34.1814535, -118.3002961 }, false },
-    { 2, "2) Red Top Market & Kitchen", 0, true, { 34.1798233, -118.3010742 }, false },
-    { 3, "3) Burbank Liquor & Food Market", 0, true, { 34.1804827, -118.3020486 }, false },
+unsigned int hardcodedDestinationsCount = 4;
+// destination: id, name, radius (meters), true, {lat,lon}, visited
+compass_MapPoint hardcodedDestinations[] = {
+    { 0, "home", 0, true, { 34.1807809, -118.3008975 }, false },
+    { 1, "colgin Ct", 0, true, { 34.1814535, -118.3002961 }, false },
+    { 2, "Red Top Market & Kitchen", 0, true, { 34.1798233, -118.3010742 }, false },
+    { 3, "Burbank Liquor & Food Market", 0, true, { 34.1804827, -118.3020486 }, false },
 };
 
-// destination: id, name, radius (meters), true, {lat,lon}, visited
-compass_MapPoint* destination = &destinations[1];
+unsigned int destinationsCount = hardcodedDestinationsCount;
+compass_MapPoint *destinations = hardcodedDestinations;
 
 /* END OF DEBUG CONFIGURATION */
 
@@ -111,20 +77,21 @@ compass_MapPoint* destination = &destinations[1];
 
 
 #include <Arduino.h>
-#include <ArduinoBLE.h>
+#include <ArduinoBLE.h>§
 #include <math.h>
 #include <TinyGPS++.h>
 #include <pb_encode.h>
 
+#include "storage.h"
 #include "compass_utils.h"
 #include "BatteryLevelService.h"
 #include "CompassState.h"
 
 #if BOARD_REVISION == 1   // Arduino nano ble sense rev1
-  #define BATTERY_PIN         A7  // battery level reading pin
-  #define HALL_SENSOR_PIN     A6    // hass sensor - analogue
   #define SERVO_PIN           D2    // servo - digital port
   #define ENCODER_PIN         A5    // angular encoder - analogue
+  #define HALL_SENSOR_PIN     A6    // hall sensor - analogue
+  #define BATTERY_PIN         A7  // battery level reading pin
 
   #define USE_SERVO true
   #include "Motor.h"
@@ -133,12 +100,14 @@ compass_MapPoint* destination = &destinations[1];
   #define COMPASS_PIVOT 180   // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION 1 // 1 - clockwise increase, -1 - counterclockwise
 
-#elif BOARD_REVISION == 2 // Arduino nano ble sense rev2
-  #define BATTERY_PIN         A7  // battery level reading pin
-  #define HALL_SENSOR_PIN     A6    // hass sensor - analogue
-  #define SERVO_PIN           D2    // servo - digital port
-  #define ENCODER_PIN         A5    // angular encoder - analogue
+  #define R1 5100.0  // resistance of R1 in the voltage divider circuit
+  #define R2 10000.0 //10000.0 // resistance of R2 in the voltage divider circuit
 
+#elif BOARD_REVISION == 2 // Arduino nano ble sense rev2
+  #define SERVO_PIN           D2    // servo - digital port
+  #define ENCODER_PIN         A5    // angular encoder - analog
+  #define HALL_SENSOR_PIN     A6    // hall sensor - analog
+  #define BATTERY_PIN         A7  // battery level reading pin
 
   #include "Sensors.h"
   Sensors sensors();
@@ -149,19 +118,50 @@ compass_MapPoint* destination = &destinations[1];
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
 
+  #define R1 5100.0  // resistance of R1 in the voltage divider circuit
+  #define R2 10000.0 //10000.0 // resistance of R2 in the voltage divider circuit
+
 #elif BOARD_REVISION == 3 // Seedstudio XIAO ble sense
-  #define BATTERY_PIN                     A0    // battery level reading pin
+/*
+A thread about reading battery levels: https://forum.seeedstudio.com/t/xiao-ble-sense-battery-level-and-charging-status/263248/23
+
+So the solution becomes clear, replace nrfx_saadc_sample_convert() with nrfx_saadc_buffer_convert() in analogRead.
+So we need to implement a non-blocking version of analogRead.
+
+max analog value for XIAO is different from arduino, so need to use 4095 isntead of 1023
+need to enable voltage read
+
+  digitalWrite(VBAT_ENABLE, LOW);
+  read battery
+  digitalWrite(VBAT_ENABLE, HIGH);
+
+  // " The battery charging current is selectable as 50mA or 100mA, where you can set Pin13 as high or low to change it to 50mA or 100mA." 
+  PIN_CHARGING_CURRENT
+
+
+  Two wires??? How?
+pinMode(BAT_HIGH_CHARGE, OUTPUT);
+  pinMode(P0_13, OUTPUT);   //Charge Current setting pin
+  pinMode(P0_14, OUTPUT);   //Enable Battery Voltage monitoring pin
+  digitalWrite(P0_13, LOW); //Charge Current 100mA   
+  digitalWrite(P0_14, LOW); //Enable
+
+*/
+  #define BATTERY_PIN                     A0 // PIN_VBAT    // P0_31 // A0 // battery level reading pin
   #define MOTOR_PIN1                      A1    // motor controller - analog port
   #define MOTOR_PIN2                      A2    // motor controller - analog port
   #define UV_LED_PIN                      D3    // UV LED for charging the disc
-  #define HALL_SENSOR_PIN                 A4    // hass sensor - analogue
-  #define ENCODER_PIN                     A5    // angular encoder - analogue
+  #define HALL_SENSOR_PIN                 A4    // hass sensor - analog
+  #define ENCODER_PIN                     A5    // angular encoder - analog
   // D6 (TX) - goes into RX on GPS
   // D7 (RX) - goes into TX on GPS
   #define MOTOR_PIN_SLEEP                 D8    // motor controller power - digital port
   #define MANGETOMETER_WIRE_PIN_SCL       D9       // For magnetometer
   #define MANGETOMETER_WIRE_PIN_SDA       D10      // For magnetometer
 
+  #define UV_LED_TIME_CONTROL true
+  #define R1 510.0  // resistance of R1 in the voltage divider circuit inside XIAO
+  #define R2 1000.0 //10000.0 // resistance of R2 in the voltage divider circuit inside XIAO
 
   #include "Sensors.h"
   Sensors sensors(MANGETOMETER_WIRE_PIN_SCL, MANGETOMETER_WIRE_PIN_SDA);
@@ -189,7 +189,6 @@ Components in use:
 * Blutooth to read an update. Turns on after first boot, and shuts down after two minutes without activity
 */
 
-
 #define HALL_SENSOR_THRESHOLD   500   // value below that is a magnet
 
 #define ENCODER_LOW         0     // 50      
@@ -208,8 +207,7 @@ TinyGPSPlus gps;          // GPS object, reads through Serial1
 #define REF_VOLTAGE   3.3 // reference voltage of the board
 #define MIN_VOLTAGE   3.3 // minimum voltage for battery
 #define MAX_VOLTAGE   4.2 // maximum voltage for battery
-#define R1 5100.0  // resistance of R1 in the voltage divider circuit
-#define R2 10000.0 //10000.0 // resistance of R2 in the voltage divider circuit
+
 #define BATTERY_DANGER_THRESHOLD 10 //10% battery - dangerous level
 // TODO: add some reaction to low battery level
 // TODO: find actual low voltage
@@ -349,6 +347,61 @@ bool checkBattery(){ // return false if level is dangerous
 
 void playTheme(){
   motor.playTheme(checkClosedLid); // play theme, but interrupt if lid is closed
+}
+void saveMap(){
+
+  // Write the map points to a CSV file
+  if(destinations){
+    write_map_points("map.csv", destinations, destinationsCount);
+  }else{
+    write_map_points("map.csv", hardcodedDestinations, hardcodedDestinationsCount);
+  }
+
+}
+void readMap(){
+  // Create some map points
+
+  // Read the map points back from the CSV file
+  size_t num_points;
+  compass_MapPoint* read_points = NULL;//read_map_points("map.csv", &num_points);
+  if(!read_points)
+  {
+    saveMap();// Initialise file with hardcoded values
+    read_points = read_map_points("map.csv", &num_points); // re-read again
+    if(!read_points)
+    {
+      destinations = hardcodedDestinations;
+      destinationsCount = hardcodedDestinationsCount;
+    }
+  }
+  if(destinations != hardcodedDestinations){
+    // remove old points
+    free(destinations);
+  }
+  destinations = read_points;
+  destinationsCount = num_points;
+
+  // Print the read map points
+
+  Serial.println("loaded points");
+  for (size_t i = 0; i < num_points; ++i) {
+    Serial.print(read_points[i].id);
+    Serial.print(") ");
+    Serial.print(read_points[i].name);
+
+    Serial.print(" (");
+    Serial.print(read_points[i].coordinates.latitude);
+    Serial.print(",");
+    Serial.print(read_points[i].coordinates.longitude);
+    Serial.print(") r:");
+    Serial.print(read_points[i].radius);
+    Serial.print(" visited:");
+    Serial.println(read_points[i].visited);
+  }
+
+  // Don't forget to free the memory
+  //free(read_points);
+
 }
 
 void setup() {
@@ -561,7 +614,7 @@ void sendCalibrationDataIfNeeded(){
 }
 
 void setVisitedDestination(uint32_t id){
-  for (int i=0;i< DESTINATIONS_COUNT;i++){
+  for (int i=0;i< destinationsCount;i++){
     if(destinations[i].id == id){
       destinations[i].visited = true;
     }  
@@ -569,14 +622,14 @@ void setVisitedDestination(uint32_t id){
 }
 
 void resetDestinations(){
-  for (int i=1;i< DESTINATIONS_COUNT;i++){
+  for (int i=1;i< destinationsCount;i++){
       destinations[i].visited = false;
   }
 }
 compass_MapPoint* findClosestUnvistedDestination(){
   float minDistance = FLT_MAX;
   compass_MapPoint *closestPoint = NULL;
-  for (int i=0;i< DESTINATIONS_COUNT;i++){
+  for (int i=0;i< destinationsCount;i++){
     if(destinations[i].visited){
       continue;
     }  
@@ -614,7 +667,7 @@ void enableUVLED(){
   #ifdef UV_LED_PIN
 
   bool needUV = true; // no time yet - keep LED working
-
+  #if UV_LED_TIME_CONTROL
   if (gps.time.isUpdated()) {
     int hour = gps.time.hour();
     int minute = gps.time.minute();
@@ -625,6 +678,7 @@ void enableUVLED(){
     }
     needUV = time < compassConfig.sunriseTime || time > compassConfig.sunsetTime;
   }
+  #endif
 
   if(needUV){
     digitalWrite(UV_LED_PIN, HIGH);
