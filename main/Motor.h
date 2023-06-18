@@ -18,14 +18,13 @@
 #define CALIBRATION_INCREASE  1 // need at least half a second to make a calibration decision
 #define CALIBRATION_DECREASE  4 // need at least half a second to make a calibration decision
 
-
 class Motor {
   public:
 
 #if USE_SERVO
-    Motor(int pin);
+    Motor(int encPin, int servoPin);
 #else
-    Motor(int pin1, int pin2, int pinPower);
+    Motor(int encPin, int pin1, int pin2, int pinPower);
 #endif
 
     void sleep();
@@ -34,6 +33,7 @@ class Motor {
     int setSpeed(int compensationAngle, bool calibrate);
     void playTheme(bool (*interrupt)());
     int mapSpeed(int compensationAngle);
+    int currentPosition();
 
   private:
     int lastCompensationAngle;
@@ -41,15 +41,51 @@ class Motor {
     int spinDirection;
     int minSpeed = MIN_SPEED;
 #if USE_SERVO
-    int motorPin;
+    int servoPin;
     Servo motorServo;
 #else
+    int encoderPin;
     int motorPin1;
     int motorPin2;
     int motorPinPower;
 #endif
 
 };
+
+
+// float alpha = 0.95; // filtration for potentiometer
+//float encoderMin=10000;
+//float encoderMax=-1;
+int Motor::currentPosition(){ // reading encoder and returning angle
+  //static float oldAngle = 0;
+  int read = analogRead(ENCODER_PIN);
+
+/*  if(read < encoderMin){
+    encoderMin = read;
+  }
+
+  if(read > encoderMax){
+    encoderMax = read;
+  }*/
+
+  int angle = map(read, 0, 1023, 0, 359);
+
+  if(angle < 0 || angle >= 360){
+    angle = 0;
+  }
+
+  /*if(-10 < angle - oldAngle && angle - oldAngle < 10){ // Avoiding lp filter between 360 and 0 which will produce some random outcome
+    angle = lpFilter(angle, oldAngle, alpha);   // filter values, but this introduces some inertia to the system
+  }
+  oldAngle = angle;*/
+  return angle;
+}
+
+float lpFilter(float value, float oldValue, float alp){
+  return oldValue*(1.f-alp)+ alp*value;
+}
+
+
 
 int Motor::mapSpeed(int compensationAngle){
   if(compensationAngle == 0){
@@ -71,8 +107,9 @@ int Motor::mapSpeed(int compensationAngle){
 }
 
 #if USE_SERVO
-  Motor::Motor(int pin) {
-    motorPin = pin;
+  Motor::Motor(int encPin, int servoPin) {
+    encoderPin = encPin;
+    motorPin = servoPin;
   }
 
   void Motor::sleep() {
@@ -81,7 +118,7 @@ int Motor::mapSpeed(int compensationAngle){
   }
 
   void Motor::wakeUp() {
-    motorServo.attach(motorPin);
+    motorServo.attach(servoPin);
   }
 
   int Motor::setSpeed(int value) {
@@ -104,7 +141,8 @@ int Motor::mapSpeed(int compensationAngle){
   }
 
 #else
-  Motor::Motor(int pin1, int pin2, int pinPower){
+  Motor::Motor(int encPin, int pin1, int pin2, int pinPower){
+    encoderPin = encPin;
     motorPin1 = pin1;
     motorPin2 = pin2;
     motorPinPower = pinPower;
@@ -121,6 +159,7 @@ int Motor::mapSpeed(int compensationAngle){
     pinMode(motorPinPower,OUTPUT);
     digitalWrite(motorPinPower, HIGH);
   }
+
 
   int Motor::setSpeed(int compensationAngle) {
     int speed = mapSpeed(compensationAngle);

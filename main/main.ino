@@ -97,7 +97,7 @@ compass_MapPoint *destinations = hardcodedDestinations;
 
   #define USE_SERVO true
   #include "Motor.h"
-  Motor motor(SERVO_PIN);  // Create an instance of the Motor class
+  Motor motor(ENCODER_PIN, SERVO_PIN);  // Create an instance of the Motor class
 
   #define COMPASS_PIVOT 180   // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION 1 // 1 - clockwise increase, -1 - counterclockwise
@@ -116,6 +116,7 @@ compass_MapPoint *destinations = hardcodedDestinations;
 
   #define USE_SERVO true
   #include "Motor.h"
+  Motor motor(ENCODER_PIN, SERVO_PIN);  // Create an instance of the Motor class
 
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
@@ -159,7 +160,7 @@ need to enable voltage read
 
   #define USE_SERVO false
   #include "Motor.h"
-  Motor motor(MOTOR_PIN1, MOTOR_PIN2, MOTOR_PIN_SLEEP);  // Create an instance of the Motor class
+  Motor motor(ENCODER_PIN, MOTOR_PIN1, MOTOR_PIN2, MOTOR_PIN_SLEEP);  // Create an instance of the Motor class
 
   // TODO: find actual values
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
@@ -182,8 +183,6 @@ Components in use:
 
 #define HALL_SENSOR_THRESHOLD   500   // value below that is a magnet
 
-#define ENCODER_LOW         0     // 50      
-#define ENCODER_HIGH        1023  // 950
 
 // TODO: auto-compensate min speed if no rotation happens
 #define DIAL_ANGLE_SENSITIVITY 2  // angle difference where motor locks the engine
@@ -286,38 +285,6 @@ const float calibrationMatrix[COMPASS_CALIBRATIONS][13] = {
 
 #endif
 
-float alpha = 0.95; // filtration for potentiometer
-float encoderMin=10000;
-float encoderMax=-1;
-
-float readDialPosition(){ // функция получения угла с потенциометра/энкодера
-  static float oldAngle = 0;
-  float read = analogRead(ENCODER_PIN);
-
-  if(read < encoderMin){
-    encoderMin = read;
-  }
-
-  if(read > encoderMax){
-    encoderMax = read;
-  }
-
-  float angle = map(read, ENCODER_LOW, ENCODER_HIGH, 0, 359);
-
-  if(angle < 0 || angle >= 360){
-    angle = 0;
-  }
-
-  if(-10 < angle - oldAngle && angle - oldAngle < 10){ // Avoiding lp filter between 360 and 0 which will produce some random outcome
-    angle = lpFilter(angle, oldAngle, alpha);   // filter values, but this introduces some inertia to the system
-  }
-  oldAngle = angle;
-  return angle;
-}
-
-float lpFilter(float value, float oldValue, float alp){
-  return oldValue*(1.f-alp)+ alp*value;
-}
 
 // TODO: do not check battery each loop (to save battery)
 bool checkBattery(){ // return false if level is dangerous
@@ -775,7 +742,7 @@ void loop() {
   readGps();
   
   // 3. Read angular position from encoder
-  compassState.dial = readDialPosition();
+  compassState.dial = motor.currentPosition();
   
   // 4. Read magnetometer (with compensation for tilt from accelerometer)
   int currentHeading = -1;
