@@ -58,7 +58,6 @@ compass_CompassConfig compassConfig {
 #define COORDINATES_CURROS {34.183580992498726, -118.29623564524786} // Some point in Miller elementary
 #define COORDIANTES_HAPPYDAYSCAFE {34.15109680100193, -118.45051328404955}
 
-/*
 #define DESTINATIONS_COUNT 1
 compass_MapPoint destinations[DESTINATIONS_COUNT] = {
 //  {0, "Home", 20, true, COORDINATES_MILLER_PARK, true }, // fixed destination, visited = true
