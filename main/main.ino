@@ -135,7 +135,7 @@ need to enable voltage read
 */
   #define BATTERY_PIN                     PIN_VBAT    // P0_31  battery level reading pin
   #define BATTERY_PIN_ENABLE              P0_14  // pin to allow readin battery level. Need to set to LOW to enable
-  #define BATTERY_PIN_HIGH_CHARGE         P0_13  // pin to allow ZIAO charge battery at 100ma. Need to set to LOW for charging
+  #define BATTERY_PIN_HIGH_CHARGE         P0_13  // pin to allow XIAO charge battery at 100ma. Need to set to LOW for charging
   #define BATTERY_PIN_CHARGING_STATUS     P0_17   // this is charging LED pin
 
   // A0: UNUSED PIN, later - control main power line for sleeping during charging
@@ -327,7 +327,8 @@ bool checkBattery(){ // return false if level is dangerous
   #ifdef BATTERY_PIN_ENABLE
     digitalWrite(BATTERY_PIN_ENABLE, LOW); // connect pull-down resistors on XIAO to read battery level
     batteryReading = analogRead(BATTERY_PIN);
-    digitalWrite(BATTERY_PIN_ENABLE, HIGH);// disconnect pull-down resistors on XIAO to read battery level
+// Important: do not set to high during charging!
+//    digitalWrite(BATTERY_PIN_ENABLE, HIGH);// disconnect pull-down resistors on XIAO to read battery level
   #else
     batteryReading = analogRead(BATTERY_PIN);
   #endif
