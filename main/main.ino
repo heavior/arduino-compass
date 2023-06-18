@@ -77,7 +77,7 @@ compass_MapPoint *destinations = hardcodedDestinations;
 
 
 #include <Arduino.h>
-#include <ArduinoBLE.h>§
+#include <ArduinoBLE.h>
 #include <math.h>
 #include <TinyGPS++.h>
 #include <pb_encode.h>
@@ -348,55 +348,50 @@ bool checkBattery(){ // return false if level is dangerous
 void playTheme(){
   motor.playTheme(checkClosedLid); // play theme, but interrupt if lid is closed
 }
+#define MAP_FILE MBED_FS_FILE_PREFIX "/map.csv"
 void saveMap(){
-
   // Write the map points to a CSV file
   if(destinations){
-    write_map_points("map.csv", destinations, destinationsCount);
-  }else{
-    write_map_points("map.csv", hardcodedDestinations, hardcodedDestinationsCount);
+    write_map_points(MAP_FILE, destinations, destinationsCount);
   }
-
 }
 void readMap(){
   // Create some map points
 
   // Read the map points back from the CSV file
   size_t num_points;
-  compass_MapPoint* read_points = NULL;//read_map_points("map.csv", &num_points);
+  compass_MapPoint* read_points = read_map_points(MAP_FILE, &num_points);
+
   if(!read_points)
   {
+    Serial.println("No map in memory, using hardcoded:");
+    destinations = hardcodedDestinations;
+    destinationsCount = hardcodedDestinationsCount;
     saveMap();// Initialise file with hardcoded values
-    read_points = read_map_points("map.csv", &num_points); // re-read again
-    if(!read_points)
-    {
-      destinations = hardcodedDestinations;
-      destinationsCount = hardcodedDestinationsCount;
+  }else{
+    Serial.println("Reading map from memory:");
+    if(destinations != hardcodedDestinations){
+      // remove old points
+      free(destinations);
     }
+    destinations = read_points;
+    destinationsCount = num_points;
   }
-  if(destinations != hardcodedDestinations){
-    // remove old points
-    free(destinations);
-  }
-  destinations = read_points;
-  destinationsCount = num_points;
 
   // Print the read map points
-
-  Serial.println("loaded points");
-  for (size_t i = 0; i < num_points; ++i) {
-    Serial.print(read_points[i].id);
+  for (size_t i = 0; i < destinationsCount; ++i) {
+    Serial.print(destinations[i].id);
     Serial.print(") ");
-    Serial.print(read_points[i].name);
+    Serial.print(destinations[i].name);
 
     Serial.print(" (");
-    Serial.print(read_points[i].coordinates.latitude);
+    Serial.print(destinations[i].coordinates.latitude);
     Serial.print(",");
-    Serial.print(read_points[i].coordinates.longitude);
+    Serial.print(destinations[i].coordinates.longitude);
     Serial.print(") r:");
-    Serial.print(read_points[i].radius);
+    Serial.print(destinations[i].radius);
     Serial.print(" visited:");
-    Serial.println(read_points[i].visited);
+    Serial.println(destinations[i].visited);
   }
 
   // Don't forget to free the memory
@@ -406,7 +401,14 @@ void readMap(){
 
 void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
+  delay(5000);
   Serial.println("Started");
+  storage_begin();
+  Serial.println("storage - done");
+  #if OVERWRITE_MAP
+    saveMap();// override file
+  #endif
+  readMap();
 
   setNextDestination();
  
