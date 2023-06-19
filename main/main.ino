@@ -140,8 +140,7 @@ need to enable voltage read
   #define BATTERY_PIN_CHARGING_STATUS     P0_17   // this is charging LED pin
 
   // uncomment to enable power switch control:
-  // #define POWER_SWITCH                    A0    // motor controller - analog port
-
+  #define POWER_SWITCH                    A0    // motor controller - analog port
 
   #define MOTOR_PIN1                      A1    // motor controller - analog port
   #define MOTOR_PIN2                      A2    // motor controller - analog port
@@ -311,12 +310,12 @@ bool checkBattery(){ // return false if level is dangerous
   float batteryVoltage = inputVoltage * (R1 + R2) / R2;
   compassState.batteryVoltage = (float)((int)(10*batteryVoltage))/10; // cut second decimal digit 
 
-  Serial.print("batterty pin reading: ");
+/*  Serial.print("batterty pin reading: ");
   Serial.print(batteryReading);
   Serial.print(" votage: ");
   Serial.print(compassState.batteryVoltage);
   Serial.print(" charging?: ");
-  Serial.println(charging);
+  Serial.println(charging);*/
   if(charging){
     compassState.batteryVoltage = -compassState.batteryVoltage;
   }
@@ -451,7 +450,8 @@ void setup() {
   #endif
 
   motor.wakeUp();
-
+  motor.calibrate();
+  
   Serial.println("Ready");
 
 }
