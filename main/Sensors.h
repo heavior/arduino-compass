@@ -4,9 +4,10 @@
 
 #if BOARD_REVISION == 1   // Arduino nano ble sense rev1
   #include <Arduino_LSM9DS1.h>
-
+  #include <Arduino_HTS221.h> // humidity and temperatur
 #elif BOARD_REVISION == 2 // Arduino nano ble sense rev2
-  #include <Arduino_BMI270_BMM150.h>
+  #include <Arduino_BMI270_BMM150.h> // build in IMU
+  #include <Arduino_HTS221.h> // humidity and temperatur
 
 #elif BOARD_REVISION == 3 // Seedstudio XIAO ble sense
   #include "QMC5883LCompass.h"  // BN-880Q uses QMC5883, same compass available on Amazon
@@ -33,6 +34,8 @@ class Sensors {
     void readAcceleration(float& x, float& y, float& z);
     void readGyroscope(float& x, float& y, float& z);
     void readMagneticField(float& x, float& y, float& z);
+    void readTemperature(int &temp);
+    int readTemperature();
   private: 
   #if BOARD_REVISION == 3
     int pinSCL;
@@ -65,6 +68,7 @@ bool Sensors::begin() {
     // TODO: explore what this compass can do
     compass.init(pinSDA, pinSCL);
   #else
+    HTS.begin();
     IMU.setContinuousMode(); // continous reading for 
   #endif
 
@@ -139,6 +143,19 @@ void Sensors::readMagneticField(float& x, float& y, float& z) {
   #else
     IMU.readMagneticField(x,y,z);
   #endif
+}
+
+int Sensors::readTemperature(){
+  #if BOARD_REVISION == 3
+    return IMU.readTempC();
+  #else
+    // did not test on arduino nano
+    // read here to learn more: https://docs.arduino.cc/tutorials/nano-33-ble-sense/humidity-and-temperature-sensor
+    return HTS.readTemperature();
+  #endif
+}
+void Sensors::readTemperature(int &temp){
+  temp = readTemperature();
 }
 
 #endif

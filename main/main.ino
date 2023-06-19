@@ -226,7 +226,7 @@ CompassState compassState{
     .spinSpeed=-1,
     .calibrate=false, /* are we in calibration state */
     .calibrateTarget=-1, /* encoder position for calibration */
-    .currentCalibration_count=13
+    .currentCalibration_count=13,
 };
 
 #if BOARD_REVISION == 1
@@ -736,11 +736,15 @@ void loop() {
     }
   }
 
-
+  // read battery
   if(!checkBattery()){
     //Serial.println("BATTERY LOW !!!");
   }
-  
+
+  // read temperature
+  compassState.temperature = sensors.readTemperature();
+
+
   // TODO: if state (close/open) changed - initiate wakeup or sleep sequence
   // TODO: open/close sequences to control compass (next step, etc )
   // TODO: use close-open to initiate bluetooth

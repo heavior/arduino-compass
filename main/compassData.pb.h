@@ -45,6 +45,7 @@ typedef struct _compass_CompassState {
     int32_t calibrateTarget; /* encoder position for calibration */
     pb_size_t currentCalibration_count;
     float currentCalibration[13]; /* current calibration values, using a repeated field to represent an array */
+    int32_t temperature;
 } compass_CompassState;
 
 typedef struct _compass_CompassConfig {
@@ -80,12 +81,12 @@ extern "C" {
 /* Initializer values for message structs */
 #define compass_Coordinate_init_default          {0, 0}
 #define compass_MapPoint_init_default            {0, "", 0, false, compass_Coordinate_init_default, 0}
-#define compass_CompassState_init_default        {false, compass_Coordinate_init_default, 0, 0, 0, 0, 0, 0, 0, false, compass_MapPoint_init_default, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
+#define compass_CompassState_init_default        {false, compass_Coordinate_init_default, 0, 0, 0, 0, 0, 0, 0, false, compass_MapPoint_init_default, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 #define compass_CompassConfig_init_default       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define compass_CalibrationData_init_default     {0, 0, 0, 0}
 #define compass_Coordinate_init_zero             {0, 0}
 #define compass_MapPoint_init_zero               {0, "", 0, false, compass_Coordinate_init_zero, 0}
-#define compass_CompassState_init_zero           {false, compass_Coordinate_init_zero, 0, 0, 0, 0, 0, 0, 0, false, compass_MapPoint_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
+#define compass_CompassState_init_zero           {false, compass_Coordinate_init_zero, 0, 0, 0, 0, 0, 0, 0, false, compass_MapPoint_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 #define compass_CompassConfig_init_zero          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 #define compass_CalibrationData_init_zero        {0, 0, 0, 0}
 
@@ -114,6 +115,7 @@ extern "C" {
 #define compass_CompassState_calibrate_tag       15
 #define compass_CompassState_calibrateTarget_tag 16
 #define compass_CompassState_currentCalibration_tag 17
+#define compass_CompassState_temperature_tag     18
 #define compass_CompassConfig_encoderZeroDialNorth_tag 1
 #define compass_CompassConfig_interpolateCalibrations_tag 2
 #define compass_CompassConfig_useDestination_tag 3
@@ -166,7 +168,8 @@ X(a, STATIC,   SINGULAR, BOOL,     spinMotor,        13) \
 X(a, STATIC,   SINGULAR, INT32,    spinSpeed,        14) \
 X(a, STATIC,   SINGULAR, BOOL,     calibrate,        15) \
 X(a, STATIC,   SINGULAR, INT32,    calibrateTarget,  16) \
-X(a, STATIC,   REPEATED, FLOAT,    currentCalibration,  17)
+X(a, STATIC,   REPEATED, FLOAT,    currentCalibration,  17) \
+X(a, STATIC,   SINGULAR, INT32,    temperature,      18)
 #define compass_CompassState_CALLBACK NULL
 #define compass_CompassState_DEFAULT NULL
 #define compass_CompassState_location_MSGTYPE compass_Coordinate
@@ -213,7 +216,7 @@ extern const pb_msgdesc_t compass_CalibrationData_msg;
 /* Maximum encoded size of messages (where known) */
 #define compass_CalibrationData_size             26
 #define compass_CompassConfig_size               65
-#define compass_CompassState_size                485
+#define compass_CompassState_size                497
 #define compass_Coordinate_size                  18
 #define compass_MapPoint_size                    292
 

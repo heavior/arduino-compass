@@ -21,23 +21,24 @@ message MapPoint{
 
 
 message CompassState {
-    Coordinate location = 1;  // Current coordinates from GPS
-    bool havePosition = 2; // do we have gps reading or not
-    bool closed = 3;// closed lid (based on hall sensor)
-    int32 motorSpeed = 4;
-    int32 heading = 5;  // direction from north (degrees)
-    int32 dial = 6; // current dial position (degrees)
-    float batteryVoltage = 7;
-    int32 batteryLevel = 8;  // battery level - %
-    MapPoint destination = 9;
-    float direction = 10;   // direction to the destination (degrees)
-    float distance = 11;    // distance to destination (meters)
-    bool disableMotor = 12;
-    bool spinMotor = 13;
-    int32 spinSpeed = 14;
-    bool calibrate = 15;  // are we in calibration state
-    int32 calibrateTarget = 16;  // encoder position for calibration
-    repeated float currentCalibration = 17;  // current calibration values, using a repeated field to represent an array
+  Coordinate location = 1;  // Current coordinates from GPS
+  bool havePosition = 2; // do we have gps reading or not
+  bool closed = 3;// closed lid (based on hall sensor)
+  int32 motorSpeed = 4;
+  int32 heading = 5;  // direction from north (degrees)
+  int32 dial = 6; // current dial position (degrees)
+  float batteryVoltage = 7;
+  int32 batteryLevel = 8;  // battery level - %
+  MapPoint destination = 9;
+  float direction = 10;   // direction to the destination (degrees)
+  float distance = 11;    // distance to destination (meters)
+  bool disableMotor = 12;
+  bool spinMotor = 13;
+  int32 spinSpeed = 14;
+  bool calibrate = 15;  // are we in calibration state
+  int32 calibrateTarget = 16;  // encoder position for calibration
+  repeated float currentCalibration = 17;  // current calibration values, using a repeated field to represent an array
+  int32 temperature = 18;
 }
 
 message CompassConfig {
