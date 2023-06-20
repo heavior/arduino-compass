@@ -52,14 +52,11 @@ class Motor {
     int mapSpeed(int compensationAngle);
     float currentPosition();
     void calibrate();
-    void calibrate2();
 
   private:
     void sendSpeedCommand(int speed);
     int calibrateForSpeed(int minSpeed, int maxSpeed, float minRPM, float maxRPM, float targetRPM, bool precise);
-    int calibrateForSpeed2(int minSpeed, int maxSpeed, float minRPM, float maxRPM, float targetRPM, bool precise);
     
-    int recalibrate(int initialSpeed, float targetRPM);
     void recalibrateMinSpeeds();
     float measureRPM(int speed, bool precise);
     float measureRPM(bool precise);
@@ -68,11 +65,10 @@ class Motor {
     unsigned long lastCalibrationTime;
     int spinDirection;
 
-    int minSpeedForward = ZERO_SPEED + MIN_SPEED;
-    int maxSpeedForward = ZERO_SPEED + MAX_SPEED;
-    int minSpeedBackward = ZERO_SPEED - MIN_SPEED;
-    int maxSpeedBackward = ZERO_SPEED - MAX_SPEED;
-    bool reverseDirection = false;
+    int minSpeedForward;
+    int maxSpeedForward;
+    int minSpeedBackward;
+    int maxSpeedBackward;
     int encoderPin;
 
 #if USE_SERVO
@@ -91,6 +87,7 @@ void Motor::setInitialCalibration(int minSpeedForward,int maxSpeedForward,int mi
   this->maxSpeedForward = maxSpeedForward;
   this->minSpeedBackward = minSpeedBackward;
   this->maxSpeedBackward = maxSpeedBackward;
+  // TODO: check initial calibration
 }
 
 void Motor::calibrate(){
@@ -133,163 +130,24 @@ void Motor::calibrate(){
   #endif
 
 }
-void Motor::calibrate2(){
-  // calibration logic:
-  // 1. We have target min and max rpm for both directions
-  // 2. Do calibration for foward and backward - min and max (4 calibrations total):
-  // 3. This logic allows working with poorly calibrated servo motors
-  int minSpeed = ZERO_SPEED + MIN_SPEED;
-  int maxSpeed = ZERO_SPEED + MAX_SPEED;
-  float minRPM = 0; //measureRPM(minSpeed, false);  // just assume stalling at min speed, not so important for max speed calculation
-  float maxRPM = measureRPM(maxSpeed, false); 
-
-  reverseDirection = (maxRPM < 0);
-  float sign = reverseDirection?-1:1; 
-
-  #if DEBUG_MOTOR_CALIBRATION
-    Serial.println("Calibrating max forward speed");
-  #endif
-  maxSpeedForward = calibrateForSpeed(minSpeed, maxSpeed, minRPM, maxRPM, sign*MAX_RPM, false); // do not use precise calibration - not afraid of stall, and don't need accuracy
-  minSpeedForward = calibrateForSpeed(minSpeed, maxSpeed, minRPM, maxRPM, sign*MIN_RPM, true); // do not use precise calibration - not afraid of stall, and don't need accuracy
-
-  minSpeed = ZERO_SPEED - MIN_SPEED;
-  maxSpeed = ZERO_SPEED - MAX_SPEED;
-  minRPM = 0;// measureRPM(minSpeed, false); // just assume stalling at min speed, not so important for max speed calculation
-  maxRPM = measureRPM(maxSpeed, false); 
-
-  #if DEBUG_MOTOR_CALIBRATION
-    Serial.println("Calibrating max backward speed");
-  #endif
-  maxSpeedBackward = calibrateForSpeed(maxSpeed, minSpeed, maxRPM, minRPM,  -sign*MAX_RPM, false); // do not use precise calibration - not afraid of stall, and don't need accuracy
-  minSpeedBackward = calibrateForSpeed(maxSpeed, minSpeed, maxRPM, minRPM,  -sign*MIN_RPM, true); // do not use precise calibration - not afraid of stall, and don't need accuracy;
-
-  if(reverseDirection){
-    #if DEBUG_MOTOR_CALIBRATION
-      Serial.println("reversed direction motor, swapping boundaries ");
-    #endif
-    int temp;
-    
-    temp = minSpeedBackward;
-    minSpeedBackward = minSpeedForward;
-    minSpeedForward = temp;
-
-    temp = maxSpeedBackward;
-    maxSpeedBackward = maxSpeedForward;
-    maxSpeedForward = temp;
-  }
-
-/*
-  #if DEBUG_MOTOR_CALIBRATION
-    Serial.println("Calibrating minimal speed for accuracy");
-  #endif
-  recalibrateMinSpeeds();
-*/
-  #if DEBUG_MOTOR_CALIBRATION
-    Serial.print("calibrated motor. min forward: ");
-    Serial.print(minSpeedForward);
-    Serial.print(" max forward: ");
-    Serial.print(maxSpeedForward);
-    Serial.print(" min backward: ");
-    Serial.print(minSpeedBackward);
-    Serial.print(" max backward: ");
-    Serial.println(maxSpeedBackward);
-  #endif
-}
 void Motor::recalibrateMinSpeeds(){
-  float sign = 1;//reverseDirection?-1:1; 
-  minSpeedForward = recalibrate(minSpeedForward, sign*MIN_RPM);
-  minSpeedBackward = recalibrate(minSpeedBackward, -sign*MIN_RPM);
-}
-int Motor::recalibrate(int speed, float targetRPM){
+  int startSpeed = minSpeedBackward;
+  int endSpeed = minSpeedForward;
+  float startRPM = measureRPM(startSpeed, true); 
+  float endRPM = measureRPM(endSpeed, true); 
 
   #if DEBUG_MOTOR_CALIBRATION
-    Serial.print("recalibrate speed:");
-    Serial.print(speed);
-
-    Serial.print(" targetRPM:");
-    Serial.println(targetRPM);
+    Serial.println("Calibrating min forward speed");
   #endif
+  minSpeedForward = calibrateForSpeed(maxSpeedBackward, maxSpeedForward, startRPM, endRPM, MIN_RPM, true); // use precise calibration - afraid of stall, need accuracy, so stop between all measures
 
-  float sign = (reverseDirection?-1:1); // if direction is reversed, then reducing speed will lead to increased rpm, so need to change the sifn for recalibration step
-  float minLimitSpeed, maxLimitSpeed;
-  if(!reverseDirection){
-    minLimitSpeed = (targetRPM>0)? ZERO_SPEED: (ZERO_SPEED - MAX_SPEED);
-    maxLimitSpeed = (targetRPM>0)? (ZERO_SPEED + MAX_SPEED): ZERO_SPEED;
-  }else{
-    minLimitSpeed = (targetRPM>0)? (ZERO_SPEED + MAX_SPEED): ZERO_SPEED;
-    maxLimitSpeed = (targetRPM>0)? ZERO_SPEED: (ZERO_SPEED - MAX_SPEED);
-  }
+  #if DEBUG_MOTOR_CALIBRATION
+    Serial.println("Calibrating min backward speed");
+  #endif
+  minSpeedBackward = calibrateForSpeed(startSpeed, endSpeed, startRPM, endRPM, -MIN_RPM, true); // use precise calibration - afraid of stall, need accuracy, so stop between all measures
 
- 
-// Motor could be stuck, need precise calibration based on old value  
-  for(int attempt = 0;attempt< MAX_CALIBRATION_ATTEMPTS;attempt++){
-    #if DEBUG_MOTOR_CALIBRATION
-      Serial.println("recalibrate - measure boundaries. min:");
-    #endif
-    int minSpeed = speed;
-    float minRPM;
-    do { 
-      minSpeed -= sign*RECALIBRATE_STEP;
-      minRPM = measureRPM(minSpeed, true);
 
-      Serial.print(minSpeed);
-      Serial.print("-");
-      Serial.print(minRPM);
-      Serial.print(", ");
-    } while( minRPM > targetRPM && minSpeed > minLimitSpeed);     // stepping to expand boundaries
-    if(minSpeed < minLimitSpeed){
-      minSpeed = minLimitSpeed;
-    }
-
-    #if DEBUG_MOTOR_CALIBRATION
-      Serial.println("recalibrate - measure boundaries. max:");
-    #endif
-    int maxSpeed = speed; 
-    float maxRPM;
-    do {
-      maxSpeed += sign*RECALIBRATE_STEP;
-      maxRPM = measureRPM(maxSpeed, true);
-
-      Serial.print(maxSpeed);
-      Serial.print("-");
-      Serial.print(maxRPM);
-      Serial.print(", ");
-    } while( maxRPM < targetRPM && maxSpeed > maxLimitSpeed);  // stepping to expand boundaries
-     if(maxSpeed > maxLimitSpeed){
-      maxSpeed = maxLimitSpeed;
-    }
-
-    #if DEBUG_MOTOR_CALIBRATION
-      Serial.println("calibrating:");
-    #endif
-    speed = calibrateForSpeed(minSpeed - RECALIBRATE_STEP, maxSpeed + RECALIBRATE_STEP, minRPM, maxRPM, targetRPM, true); // presice calibration now
-    // run presize calibration
-    float finalRPM = measureRPM(speed, true);
-    if(finalRPM < targetRPM){
-      #if DEBUG_MOTOR_CALIBRATION
-        Serial.print("RECALIBRATION ");
-        Serial.print(attempt);
-        Serial.print(" FAILED @ ");
-        Serial.print(speed);
-        Serial.print(" rpm: ");
-        Serial.print(finalRPM);
-        Serial.print(" vs target: ");
-        Serial.println(targetRPM);
-      #endif
-    }else{
-        Serial.print("RECALIBRATION ");
-        Serial.print(attempt);
-        Serial.print(" SUCCESS @ ");
-        Serial.print(speed);
-        Serial.print(" rpm: ");
-        Serial.print(finalRPM);
-        Serial.print(" vs target: ");
-        Serial.println(targetRPM);
-      return speed;
-    }
-  }
 }
-
 
 int Motor::calibrateForSpeed(int startSpeed, int endSpeed, float startRPM, float endRPM, float targetRPM, bool precise){
   while(abs(startSpeed-endSpeed)>1){
@@ -349,102 +207,6 @@ int Motor::calibrateForSpeed(int startSpeed, int endSpeed, float startRPM, float
   return result;
 }
 
-int Motor::calibrateForSpeed2(int minSpeed, int maxSpeed, float minRPM, float maxRPM, float targetRPM, bool precise){
-  float sign = (minRPM > maxRPM)?-1:0;
-  while(maxSpeed - minSpeed > 1){
-    // find new target point - proportionally
-    int currentSpeed = 0;
-    currentSpeed = (minSpeed + maxSpeed)/2;
-
-    if(precise){
-      stopMotor();
-    }
-    float currentRPM = measureRPM(currentSpeed, precise);
-    #if DEBUG_MOTOR_CALIBRATION
-      Serial.print("calibrateForSpeed. minSpeed: ");
-      Serial.print(minSpeed);
-      Serial.print(" maxSpeed: ");
-      Serial.print(maxSpeed);
-
-      Serial.print(" minRPM: ");
-      Serial.print(minRPM);
-
-      Serial.print(" maxRPM: ");
-      Serial.print(maxRPM);
-
-      Serial.print(" targetRPM: ");
-      Serial.print(targetRPM);
-
-      Serial.print(" currentSpeed: ");
-      Serial.print(currentSpeed);
-
-      Serial.print(" currentRPM: ");
-      Serial.print(currentRPM);
-    #endif
-
-
-    /*if(currentRPM == targetRPM){
-      // exact match, no need to dig deeper
-      #if DEBUG_MOTOR_CALIBRATION
-        Serial.println(" MATCH!");
-      #endif
-        
-      return currentSpeed;
-    }*/
-    if(currentRPM < minRPM){
-      minSpeed = currentSpeed;
-      minRPM = currentRPM;
-      
-      #if DEBUG_MOTOR_CALIBRATION
-        Serial.println(" CORRECTING MIN RPM");
-      #endif
-    }else if(currentRPM > maxRPM){
-      maxRPM = currentRPM;
-      maxSpeed = currentSpeed;
-      #if DEBUG_MOTOR_CALIBRATION
-        Serial.println(" CORRECTING MAX RPM");
-      #endif
-    }else if(abs(currentRPM - minRPM) < 1){ // flat line on the left
-      #if DEBUG_MOTOR_CALIBRATION
-        Serial.println(" FLAT LEFT!");
-      #endif
-      minSpeed = currentSpeed;
-      minRPM = currentRPM;
-    }else if(abs(maxRPM - currentRPM) < 1){ // flat line on the right
-      #if DEBUG_MOTOR_CALIBRATION
-        Serial.println(" FLAT RIGHT!");
-      #endif
-      maxSpeed = currentSpeed; // shifting right boundary
-      maxRPM = currentRPM;
-    }else if(maxSpeed*currentRPM > maxSpeed*targetRPM){
-
-      #if DEBUG_MOTOR_CALIBRATION
-        Serial.println(" MOVING RIGHT BOUNDARY!");
-      #endif
-
-      // actually moving right boundary
-      maxSpeed = currentSpeed;
-      maxRPM = currentRPM;
-    }
-    else if(maxSpeed*currentRPM < maxSpeed*targetRPM){
-      #if DEBUG_MOTOR_CALIBRATION
-        Serial.println(" MOVING LEFT BOUNDARY!");
-      #endif
-
-      // actually moving left boundary
-      minSpeed = currentSpeed;
-      minRPM = currentRPM;
-    } 
-  }
-
-  int result = abs(maxRPM)>abs(minRPM)?maxSpeed:minSpeed;
-  #if DEBUG_MOTOR_CALIBRATION
-    Serial.print("calibration result - speed: ");
-    Serial.println(result);
-  #endif
-  // if we got here, our interval got too small, so return upper boundary of this interval, is it is more likely to have some movement
-  return result;
-}
 float Motor::measureRPM(int speed, bool precise){
   if(precise){
     stopMotor();
