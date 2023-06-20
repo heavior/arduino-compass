@@ -19,19 +19,17 @@
 #endif
 
 #define MIN_CALIBRATION_TIME  500 // need at least half a second to make a calibration decision
-#define CALIBRATION_INCREASE  1 // need at least half a second to make a calibration decision
-#define CALIBRATION_DECREASE  4 // need at least half a second to make a calibration decision
 
 #define MEASURE_INTERVAL      50     // RPM Measurement interval in milliseconds
 #define MEASURE_TIME_ROUGH    500    // Total time for RPM measurement in milliseconds
-#define MEASURE_TIME_PRECISE  1000 // Longer measurement for precision
-#define MOTOR_REACTION_TIME   300 // How much time do we give motor to slow down or speed up
+#define MEASURE_TIME_PRECISE  1000   // Longer measurement for precision
+#define MOTOR_REACTION_TIME   300    // How much time do we give motor to slow down or speed up
 #define RECALIBRATE_STEP      10
 #define MAX_CALIBRATION_ATTEMPTS  5
 
 // TODO: find later what works
 #define MAX_RPM   120  // 120 // 2 dial turns per second = 720 degrees per second
-#define MIN_RPM   .5   // .5/60 dial turns per second = 3 degrees per second
+#define MIN_RPM   1   // .5/60 dial turns per second = 3 degrees per second
 
 class Motor {
   public:
@@ -118,6 +116,8 @@ void Motor::calibrate(){
   #endif
   minSpeedBackward = calibrateForSpeed(startSpeed, endSpeed, startRPM, endRPM, -MIN_RPM, true); // use precise calibration - afraid of stall, need accuracy, so stop between all measures
 
+  recalibrateMinSpeeds();
+
   #if DEBUG_MOTOR_CALIBRATION
     Serial.print("calibrated motor. min forward: ");
     Serial.print(minSpeedForward);
@@ -131,28 +131,32 @@ void Motor::calibrate(){
 
 }
 void Motor::recalibrateMinSpeeds(){
-  int startSpeed = minSpeedBackward;
-  int endSpeed = minSpeedForward;
-  float startRPM = measureRPM(startSpeed, true); 
-  float endRPM = measureRPM(endSpeed, true); 
+  float confirmRPM = abs(measureRPM(minSpeedForward, true));
+  while(confirmRPM < MIN_RPM){     // trying calibration again
+    Serial.println("incorrect minSpeedForward calibration ");
+    minSpeedForward = calibrateForSpeed(minSpeedForward, maxSpeedForward, 0, MAX_RPM, MIN_RPM, true); 
+    confirmRPM = abs(measureRPM(minSpeedForward, true));
+  }
 
-  #if DEBUG_MOTOR_CALIBRATION
-    Serial.println("Calibrating min forward speed");
-  #endif
-  minSpeedForward = calibrateForSpeed(maxSpeedBackward, maxSpeedForward, startRPM, endRPM, MIN_RPM, true); // use precise calibration - afraid of stall, need accuracy, so stop between all measures
-
-  #if DEBUG_MOTOR_CALIBRATION
-    Serial.println("Calibrating min backward speed");
-  #endif
-  minSpeedBackward = calibrateForSpeed(startSpeed, endSpeed, startRPM, endRPM, -MIN_RPM, true); // use precise calibration - afraid of stall, need accuracy, so stop between all measures
-
-
+  confirmRPM = abs(measureRPM(minSpeedBackward, true));
+  if(confirmRPM<MIN_RPM){
+    Serial.println("incorrect minSpeedBackward calibration ");
+    minSpeedBackward = calibrateForSpeed(minSpeedBackward, maxSpeedBackward, 0, -MAX_RPM, -MIN_RPM, true); 
+    // trying calibration once again
+  }
 }
 
+
+float roundToLowestAbsoluteValue(float number) {
+    return  round(fabs(number)) * (number >= 0 ? 1 : -1);
+}
 int Motor::calibrateForSpeed(int startSpeed, int endSpeed, float startRPM, float endRPM, float targetRPM, bool precise){
   while(abs(startSpeed-endSpeed)>1){
     int currentSpeed = (startSpeed+endSpeed)/2;
     float currentRPM = measureRPM(currentSpeed, precise);
+    if(!precise){ // Rounding value when looking for max RPM to have a
+      currentRPM = roundToLowestAbsoluteValue(currentRPM);
+    }
 
     #if DEBUG_MOTOR_CALIBRATION
       Serial.print("calibrateForSpeed. startSpeed: ");
@@ -198,7 +202,7 @@ int Motor::calibrateForSpeed(int startSpeed, int endSpeed, float startRPM, float
 
   }
 
-  int result = abs(endRPM)>abs(startRPM)?endSpeed:startSpeed;
+  int result = abs(endRPM)>=abs(startRPM)?endSpeed:startSpeed;
   #if DEBUG_MOTOR_CALIBRATION
     Serial.print("calibration result - speed: ");
     Serial.println(result);
@@ -423,24 +427,13 @@ void Motor::stopMotor(){
           // no changes in the angle - maybe increase min speed
           // TODO: when to decrease min speed?
           // TODO: this should be visible over BT
-          // minSpeed+=CALIBRATION_INCREASE;
           Serial.println("Motor stuck ");
           recalibrateMinSpeeds();
-          /*Serial.print("Motor calibration ");
-          Serial.print(compensationAngle);
-          Serial.print(" - increase min speed: ");
-          Serial.println(minSpeed);*/
           lastCompensationAngle = 0; // skip next calibration
           lastCalibrationTime = 0;
         }
         if(lastCompensationAngle * compensationAngle<0){
           Serial.println("MOTOR TOO FAST!");
-          /*minSpeed-=CALIBRATION_DECREASE;
-          Serial.print("Motor calibration ");
-          Serial.print(compensationAngle);
-          Serial.print(" - decrease min speed: ");
-          Serial.println(minSpeed);
-          */
           lastCompensationAngle = 0; // skip next calibration
           lastCalibrationTime = 0;
         }
