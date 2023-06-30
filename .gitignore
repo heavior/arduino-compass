@@ -5,3 +5,6 @@ compass-pcb/fp-info-cache
 ble-webapp/node_modules/**
 ble-webapp/package-lock.json
 compass-pcb/**/*.zip
+*.gbr
+*.drl
+*.gbrjob
