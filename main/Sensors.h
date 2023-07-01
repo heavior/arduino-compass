@@ -10,9 +10,8 @@
   #include <Arduino_HTS221.h> // humidity and temperatur
 
 #elif BOARD_REVISION == 3 // Seedstudio XIAO ble sense
-  #include <DFRobot_QMC5883.h>  // Universal magnetometer library
-  #include <Wire.h>
-  // Note: Patch library with SoftwareI2C.h if need special pins and software implementaion for I2C instead of Wire.h
+  #include "QMC5883LCompass.h"  // BN-880Q uses QMC5883, same compass available on Amazon
+  // Patch QMC5883LCompass.h with SoftwareI2C.h to use special pins and software implementaion for I2C instead of Wire.h
 
   #include <LSM6DS3.h> // Seedstudio XIAO BLE SENSE IMU, more details: https://wiki.seeedstudio.com/XIAO-BLE-Sense-IMU-Usage/
 #endif
@@ -41,21 +40,14 @@ class Sensors {
   #if BOARD_REVISION == 3
     int pinSCL;
     int pinSDA;
-    DFRobot_QMC5883 compass;
-
+    QMC5883LCompass compass;
     LSM6DS3 IMU;   
   #endif
 };
 
 
 #if BOARD_REVISION == 3
-
-/*
-#define HMC5883L_ADDRESS             (0x1E)
-#define QMC5883_ADDRESS              (0x0D)
-#define VCM5883L_ADDRESS             (0x0C)
-*/
-  Sensors::Sensors(int compassPinSCL, int compassPinSDA):compass(&Wire, /*I2C addr*/QMC5883_ADDRESS){
+  Sensors::Sensors(int compassPinSCL, int compassPinSDA){
     pinSCL = compassPinSCL;
     pinSDA = compassPinSDA;
   }
@@ -74,9 +66,7 @@ bool Sensors::begin() {
 
   #if BOARD_REVISION == 3
     // TODO: explore what this compass can do
-    // compass.init(pinSDA, pinSCL);
-    compass.begin();
-
+    compass.init(pinSDA, pinSCL);
   #else
     HTS.begin();
     IMU.setContinuousMode(); // continous reading for 
@@ -144,19 +134,12 @@ void Sensors::readMagneticField(float& x, float& y, float& z) {
   // Implement reading magnetometer data here
   #if BOARD_REVISION == 3
     // Read compass values
-    /*compass.read();
+    compass.read();
 
     // Return XYZ readings
     x = compass.getX();
     y = compass.getY();
-    z = compass.getZ();*/
-
-
-    sVector_t mag = compass.readRaw();
-    compass.getHeadingDegrees();
-    x = mag.XAxis;
-    y = mag.YAxis;
-    z = mag.ZAxis;
+    z = compass.getZ();
   #else
     IMU.readMagneticField(x,y,z);
   #endif
