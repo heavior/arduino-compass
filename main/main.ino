@@ -24,7 +24,7 @@ compass_CompassConfig compassConfig {
 
   .delay = 50, // prod value=100, if delay 50, accelrometer doesn't always have time to read
   .ignoreHallSensor = false,  // prod value: false
-  .debugHall = false,         // prod value: false
+  .debugHall = true,         // prod value: false
   .enableBluetooth = true,    // prod value: true
   .compensateCompassForTilt = true,   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
 
@@ -152,8 +152,8 @@ need to enable voltage read
 
   // A4 - SDA for magnetometer
   // A5 - SCL for magnetometer
-  #define MANGETOMETER_WIRE_PIN_SDA       A4
-  #define MANGETOMETER_WIRE_PIN_SCL       A5
+  #define MANGETOMETER_WIRE_PIN_SDA       A5  // Made a mistake in the PCB here, so have to swap native I2C pins and use software implementation :(
+  #define MANGETOMETER_WIRE_PIN_SCL       A4
 
   // D6 (TX) - goes into RX on GPS
   // D7 (RX) - goes into TX on GPS
@@ -185,7 +185,7 @@ need to enable voltage read
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
 
-  #define CALIBRATE_MOTOR true
+  #define CALIBRATE_MOTOR false
 
 #endif
 #define MOTOR_CALIBRATION false
@@ -202,7 +202,9 @@ Components in use:
 * Blutooth to read an update. Turns on after first boot, and shuts down after two minutes without activity
 */
 
-#define HALL_SENSOR_THRESHOLD   500   // value below that is a magnet
+// TODO: move threshold to config for fine-tuning
+#define HALL_SENSOR_THRESHOLD   20   // value below that is a magnet
+#define HALL_SENSOR_ZERO        512
 
 
 // TODO: auto-compensate min speed if no rotation happens
@@ -449,7 +451,7 @@ void setup() {
   #ifdef POWER_SWITCH // main switch transistor 
     // TODO: power it down when charging
     pinMode(POWER_SWITCH, OUTPUT);
-    digitalWrite(POWER_SWITCH, HIGH); 
+    digitalWrite(POWER_SWITCH, LOW); 
   #endif
 
   pinMode(ENCODER_PIN, INPUT);
@@ -609,13 +611,19 @@ int getCompensationAngle(int targetDial){
   return compensationAngle;
 }
 bool checkClosedLid(){
+  // TODO: move to sensors
   int hallValue = analogRead(HALL_SENSOR_PIN);  // Read the value of the hall sensor
-  compassState.closed = hallValue <= HALL_SENSOR_THRESHOLD;
+  /* linear hall sensor has neutral value, and then value goes up or down depending on the magnet polarity  */
+  int hallMagnitude = abs(hallValue - HALL_SENSOR_ZERO);
+  compassState.closed = hallMagnitude >= HALL_SENSOR_THRESHOLD;
 
   if(compassConfig.debugHall){
     Serial.print("hall: ");
     Serial.print(hallValue);
     Serial.print(" ");
+
+    Serial.print("closed:");
+    Serial.println(compassState.closed);
   }
 
   return compassState.closed;
