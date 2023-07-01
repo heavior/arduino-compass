@@ -162,9 +162,9 @@ void Sensors::readMagneticField(float& x, float& y, float& z) {
   #endif
   Serial.print("magnetic x:");
   Serial.print(x);
-  Serial.print("magnetic y:");
+  Serial.print(" y:");
   Serial.print(y);
-  Serial.print("magnetic z:");
+  Serial.print(" z:");
   Serial.println(z);
 }
 
