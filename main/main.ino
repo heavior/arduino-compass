@@ -15,12 +15,12 @@
 */
 
 compass_CompassConfig compassConfig { 
-  .encoderZeroDialNorth = 45,   // prod: 45   // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
+  .encoderZeroDialNorth = 0,   // prod: 45   // where does the arrow points when encoder is 0? this correction will be applied to dial position, value depends on the encoder magnet!
   .interpolateCalibrations = true, // prod value: true, if false - use closest calibration, if true - interpolate calibration values (needs good calibration)
+
   .useDestination = true,    // prod value: true, if false - ignore destination and GPS, point to fixDirection on the dial
   .useCompass = true,        // prod value: true, if false - ignore magnetometer, set fixDirection on the dial
-
-  .fixDirection = 0,           // prod value: doesn't matter
+  .fixDirection = 90,           // prod value: doesn't matter
 
   .delay = 50, // prod value=100, if delay 50, accelrometer doesn't always have time to read
   .ignoreHallSensor = false,  // prod value: false
@@ -41,7 +41,7 @@ compass_CompassConfig compassConfig {
 //#define OVERWRITE_MAP true
 
 #define MOTOR_SPIN_FAST_SPEED 180
-#define MOTOR_SPIN_SLOW_SPEED 60
+#define MOTOR_SPIN_SLOW_SPEED -1 // MINIMAL SPEED
 // TODO: move slow and fast speed to compassConfig
 
 // some useful locations
@@ -140,18 +140,30 @@ need to enable voltage read
   #define BATTERY_PIN_CHARGING_STATUS     P0_17   // this is charging LED pin
 
   // uncomment to enable power switch control:
-  #define POWER_SWITCH                    A0    // motor controller - analog port
+  #define UV_LED_PIN                      A0    // UV LED for charging the disc
+  #define SERVO_PIN                       A1 // if testing servo - using first motor pin
+//  /* unused with servo */ #define MOTOR_PIN1                      A1    // motor controller - analog port
+//  /* unused with servo */ #define MOTOR_PIN2                      A2    // motor controller - analog port
+//  /* unused with servo */ #define MOTOR_PIN_SLEEP                 D8    // motor controller power - digital port
 
-  #define MOTOR_PIN1                      A1    // motor controller - analog port
-  #define MOTOR_PIN2                      A2    // motor controller - analog port
-  #define UV_LED_PIN                      D3    // UV LED for charging the disc
-  #define HALL_SENSOR_PIN                 A4    // hass sensor - analog
-  #define ENCODER_PIN                     A5    // angular encoder - analog
+
+  #define HALL_SENSOR_PIN                 A2    // hass sensor - analog
+  #define ENCODER_PIN                     A3    // angular encoder - analog
+
+  // A4 - SDA for magnetometer
+  // A5 - SCL for magnetometer
+  #define MANGETOMETER_WIRE_PIN_SDA       A4
+  #define MANGETOMETER_WIRE_PIN_SCL       A5
+
   // D6 (TX) - goes into RX on GPS
   // D7 (RX) - goes into TX on GPS
-  #define MOTOR_PIN_SLEEP                 D8    // motor controller power - digital port
-  #define MANGETOMETER_WIRE_PIN_SCL       D9       // For magnetometer
-  #define MANGETOMETER_WIRE_PIN_SDA       D10      // For magnetometer
+  
+  #define POWER_SWITCH                    D8    // motor controller - analog port
+
+  // D9 - unused
+  // D10 - unused
+
+
 
   #define UV_LED_TIME_CONTROL true
   #define R1 1000.0  // resistance of R1 in the voltage divider circuit inside XIAO
@@ -160,13 +172,20 @@ need to enable voltage read
   #include "Sensors.h"
   Sensors sensors(MANGETOMETER_WIRE_PIN_SCL, MANGETOMETER_WIRE_PIN_SDA);
 
-  #define USE_SERVO false
+  #define USE_SERVO true
   #include "Motor.h"
-  Motor motor(ENCODER_PIN, MOTOR_PIN1, MOTOR_PIN2, MOTOR_PIN_SLEEP);  // Create an instance of the Motor class
+  #if USE_SERVO
+    Motor motor(ENCODER_PIN, SERVO_PIN);  // Create an instance of the Motor class
+  #else
+    Motor motor(ENCODER_PIN, MOTOR_PIN1, MOTOR_PIN2, MOTOR_PIN_SLEEP);  // Create an instance of the Motor class
+  #endif
+
 
   // TODO: find actual values
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
+
+  #define CALIBRATE_MOTOR true
 
 #endif
 #define MOTOR_CALIBRATION false
@@ -197,12 +216,11 @@ TinyGPSPlus gps;          // GPS object, reads through Serial1
 
 
 #define REF_VOLTAGE   3.3 // reference voltage of the board
-#define MIN_VOLTAGE   3.3 // minimum voltage for battery
+#define MIN_VOLTAGE   3.0 // minimum voltage for battery
 #define MAX_VOLTAGE   4.2 // maximum voltage for battery
 
 #define BATTERY_DANGER_THRESHOLD 10 //10% battery - dangerous level
 // TODO: add some reaction to low battery level
-// TODO: find actual low voltage
 
 
 
@@ -388,7 +406,7 @@ void readMap(){
 }
 void setup() {
   Serial.begin(9600); // non blocking - opening Serial port to connect to laptop for diagnostics
-  delay(5000);
+  delay(2000);
   Serial.println("Started");
   storage_begin();
   Serial.println("storage - done");
@@ -450,7 +468,9 @@ void setup() {
   #endif
 
   motor.wakeUp();
-  motor.calibrate();
+  #if CALIBRATE_MOTOR
+    motor.calibrate();
+  #endif
   
   Serial.println("Ready");
 
