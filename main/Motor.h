@@ -23,9 +23,11 @@
 #define MEASURE_INTERVAL      50     // RPM Measurement interval in milliseconds
 #define MEASURE_TIME_ROUGH    500    // Total time for RPM measurement in milliseconds
 #define MEASURE_TIME_PRECISE  1000   // Longer measurement for precision
-#define MOTOR_REACTION_TIME   300    // How much time do we give motor to slow down or speed up
+#define MOTOR_REACTION_TIME   500    // How much time do we give motor to slow down or speed up
 #define RECALIBRATE_STEP      10
 #define MAX_CALIBRATION_ATTEMPTS  5
+#define TRICKLE_DELAY         50     // how long is motor boost
+#define TRY_TRICKLE           false
 
 // TODO: find later what works
 #define MAX_RPM   120  // 120 // 2 dial turns per second = 720 degrees per second
@@ -48,10 +50,13 @@ class Motor {
     int setSpeed(int compensationAngle, bool calibrate);
     void playTheme(bool (*interrupt)());
     int mapSpeed(int compensationAngle);
-    float currentPosition();
     void calibrate();
 
+
+    float currentPosition();
+
   private:
+    void sendSpeedCommand(int speed, bool trickle);
     void sendSpeedCommand(int speed);
     int calibrateForSpeed(int minSpeed, int maxSpeed, float minRPM, float maxRPM, float targetRPM, bool precise);
     
@@ -68,6 +73,7 @@ class Motor {
     int minSpeedBackward;
     int maxSpeedBackward;
     int encoderPin;
+    int latestSpeed;
 
 #if USE_SERVO
     int servoPin;
@@ -146,6 +152,24 @@ void Motor::recalibrateMinSpeeds(){
   }
 }
 
+void Motor::sendSpeedCommand(int speed, bool trickle){
+  #if TRY_TRICKLE
+    if(trickle && latestSpeed!=speed){ // short boost 
+      int trickleSpeed = speed*maxSpeedForward > 0 ? maxSpeedForward:maxSpeedBackward;
+      sendSpeedCommand(trickleSpeed);
+      Serial.print("trickle " );
+      Serial.print(trickleSpeed);
+      Serial.print("for" );
+      Serial.println(speed);
+      
+      delay(TRICKLE_DELAY);
+    }
+  #endif
+  
+  latestSpeed = speed;
+  sendSpeedCommand(speed);
+  
+}
 
 float roundToLowestAbsoluteValue(float number) {
     return  round(fabs(number)) * (number >= 0 ? 1 : -1);
@@ -215,7 +239,7 @@ float Motor::measureRPM(int speed, bool precise){
   if(precise){
     stopMotor();
   }
-  sendSpeedCommand(speed);
+  sendSpeedCommand(speed, true);
   float result = measureRPM(precise);
   return result;
 }
@@ -306,6 +330,9 @@ float Motor::currentPosition(){ // reading encoder and returning angle
     angle = lpFilter(angle, oldAngle, alpha);   // filter values, but this introduces some inertia to the system
   }
   oldAngle = angle;*/
+
+//  Serial.print("dial position: ");
+//  Serial.print(angle);
   return angle;
 }
 
@@ -320,6 +347,8 @@ int Motor::mapSpeed(int compensationAngle){
     return ZERO_SPEED;
   }
 
+//Serial.print(" map speed: ");
+//Serial.print(compensationAngle);
   compensationAngle = -compensationAngle; // our goal is to reduce compensation angle to zero, so we are going to proved speed opposite to the angle
 
   int speed = ZERO_SPEED;
@@ -328,18 +357,22 @@ int Motor::mapSpeed(int compensationAngle){
   }else if(compensationAngle < 0){
     speed = map(-compensationAngle, 1, 180, minSpeedBackward, maxSpeedBackward); 
   }
+
+Serial.print(" to: ");
+Serial.println(speed);
+
   return speed;
 }
 
 int Motor::setSpeed(int compensationAngle) {
   int speed = mapSpeed(compensationAngle);
-  sendSpeedCommand (speed);
+  sendSpeedCommand (speed, true);
   return speed;
 }
 
 void Motor::stopMotor(){
   // TODO: instead of just waiting - confirm through encoder readings, might be faster
-  sendSpeedCommand(ZERO_SPEED);
+  sendSpeedCommand(ZERO_SPEED, false);
   delay(MOTOR_REACTION_TIME);
 }
 
@@ -361,6 +394,7 @@ void Motor::stopMotor(){
 
   
   void Motor::sendSpeedCommand(int speed) {
+    //trickle(speed);
     motorServo.write(speed);
   }
  
