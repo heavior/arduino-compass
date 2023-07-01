@@ -333,6 +333,13 @@ float Motor::currentPosition(){ // reading encoder and returning angle
 
 //  Serial.print("dial position: ");
 //  Serial.print(angle);
+
+
+/*  Serial.print("encoder value:");
+  Serial.print(read);
+  Serial.print(" angle:");
+  Serial.println(angle);*/
+
   return angle;
 }
 
@@ -358,8 +365,8 @@ int Motor::mapSpeed(int compensationAngle){
     speed = map(-compensationAngle, 1, 180, minSpeedBackward, maxSpeedBackward); 
   }
 
-Serial.print(" to: ");
-Serial.println(speed);
+//Serial.print(" to: ");
+//Serial.println(speed);
 
   return speed;
 }
