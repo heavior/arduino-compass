@@ -185,7 +185,7 @@ need to enable voltage read
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
 
-  #define CALIBRATE_MOTOR true
+  #define CALIBRATE_MOTOR true 
 
 
   // setting below depend on the mosfet used - 
@@ -430,6 +430,10 @@ void setup() {
     digitalWrite(POWER_SWITCH, POWER_ON_SINGNAL);  // LOW is opening. need to fix that
   #endif
 
+  #ifdef UV_LED_PIN
+    pinMode(UV_LED_PIN, OUTPUT);
+    disableUVLED();
+  #endif
 
   #if OVERWRITE_MAP
     saveMap();// override file
