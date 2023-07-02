@@ -24,7 +24,7 @@ compass_CompassConfig compassConfig {
 
   .delay = 50, // prod value=100, if delay 50, accelrometer doesn't always have time to read
   .ignoreHallSensor = false,  // prod value: false
-  .debugHall = true,         // prod value: false
+  .debugHall = false,         // prod value: false
   .enableBluetooth = true,    // prod value: true
   .compensateCompassForTilt = true,   // prod value: true flag defines compensation for tilt. Bias and matrix are applied always, because otherwise it's garbage
 
@@ -185,7 +185,18 @@ need to enable voltage read
   #define COMPASS_PIVOT 270 // calibrated heading value when compass is aligned with north
   #define COMPASS_DIRECTION -1 // 1 - clockwise increase, -1 - counterclockwise
 
-  #define CALIBRATE_MOTOR false
+  #define CALIBRATE_MOTOR true
+
+
+  // setting below depend on the mosfet used - 
+  /*
+  SI2301 is P-channel , LOW value opens it
+  AO3400/A09T is N-channel , HIGH value opens it
+  */
+  #define POWER_ON_SINGNAL  LOW
+  #define POWER_OFF_SINGNAL  HIGH
+  #define LED_ON_SINGNAL  LOW
+  #define LED_OFF_SINGNAL  HIGH
 
 #endif
 #define MOTOR_CALIBRATION false
@@ -412,6 +423,14 @@ void setup() {
   Serial.println("Started");
   storage_begin();
   Serial.println("storage - done");
+
+  #ifdef POWER_SWITCH // main switch transistor 
+    // TODO: power it down when charging
+    pinMode(POWER_SWITCH, OUTPUT);
+    digitalWrite(POWER_SWITCH, POWER_ON_SINGNAL);  // LOW is opening. need to fix that
+  #endif
+
+
   #if OVERWRITE_MAP
     saveMap();// override file
   #endif
@@ -447,12 +466,6 @@ void setup() {
   }else{
     Serial.println("Sensors ready");
   }
-
-  #ifdef POWER_SWITCH // main switch transistor 
-    // TODO: power it down when charging
-    pinMode(POWER_SWITCH, OUTPUT);
-    digitalWrite(POWER_SWITCH, LOW); 
-  #endif
 
   pinMode(ENCODER_PIN, INPUT);
 
@@ -698,7 +711,7 @@ void setNextDestination(){
 
 void disableUVLED(){
   #ifdef UV_LED_PIN
-    digitalWrite(UV_LED_PIN, LOW);
+    digitalWrite(UV_LED_PIN, LED_OFF_SINGNAL);
   #endif
 }
 void enableUVLED(){
@@ -719,7 +732,7 @@ void enableUVLED(){
   #endif
 
   if(needUV){
-    digitalWrite(UV_LED_PIN, HIGH);
+    digitalWrite(UV_LED_PIN, LED_ON_SINGNAL);
   }
   #endif
 }
