@@ -11,7 +11,7 @@
   #include <Servo.h>
   #define ZERO_SPEED    90    // 90 is a still position in Servo.h to stop servo motor. Full range supported by servo.h is 0 to 180
   #define MAX_SPEED     90    // 30 is prev value, max speed where servo stops accelerating. Note: can go beyond that value, or below to slow it down
-  #define MIN_SPEED     0     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
+  #define MIN_SPEED     5     // min speed where servo becomes unresponsive or doesn't have enough power. somewhere around 8 we start getting consistent results
 #else
   #define ZERO_SPEED    0    
   #define MAX_SPEED     255  
@@ -68,10 +68,10 @@ class Motor {
     unsigned long lastCalibrationTime;
     int spinDirection;
 
-    int minSpeedForward;
-    int maxSpeedForward;
-    int minSpeedBackward;
-    int maxSpeedBackward;
+    int minSpeedForward = ZERO_SPEED + MIN_SPEED;
+    int maxSpeedForward = ZERO_SPEED + MAX_SPEED;;
+    int minSpeedBackward = ZERO_SPEED - MIN_SPEED;
+    int maxSpeedBackward = ZERO_SPEED - MAX_SPEED;
     int encoderPin;
     int latestSpeed;
 
@@ -335,10 +335,11 @@ float Motor::currentPosition(){ // reading encoder and returning angle
 //  Serial.print(angle);
 
 
-/*  Serial.print("encoder value:");
+  Serial.print(" encoder:");
   Serial.print(read);
   Serial.print(" angle:");
-  Serial.println(angle);*/
+  Serial.print(angle);
+  Serial.print(" ");
 
   return angle;
 }
@@ -392,7 +393,7 @@ void Motor::stopMotor(){
 
   void Motor::sleep() {
     setSpeed(0);
-    motorServo.detach();
+    //motorServo.detach();
   }
 
   void Motor::wakeUp() {
@@ -402,6 +403,9 @@ void Motor::stopMotor(){
   
   void Motor::sendSpeedCommand(int speed) {
     //trickle(speed);
+    Serial.print(" servo: ");
+    Serial.print(speed);
+    Serial.print(" ");
     motorServo.write(speed);
   }
  
